@@ -23,7 +23,6 @@ class Grafo {
 
     /**
      * Construtor para grafo não direcionado padrão.
-     * PASSO 1 (Lista Q1/Q2): Criação e inicialização das estruturas.
      */
     public Grafo(int numVertices) {
         this(numVertices, false);
@@ -31,16 +30,12 @@ class Grafo {
 
     /**
      * Construtor geral especificando se é direcionado ou não.
-     * PASSO 1: Inicializa a matriz com zeros e as listas de adjacência vazias para cada vértice.
      */
     public Grafo(int numVertices, boolean direcionado) {
         this.n = numVertices;
         this.direcionado = direcionado;
         
-        // PASSO 1 – Criação da Matriz de Adjacência (n x n inicializada com zeros por padrão no Java)
         this.matriz = new int[n][n];
-
-        // PASSO 1 – Criação da Lista de Adjacência (uma lista vazia para cada vértice)
         this.lista = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             this.lista.add(new ArrayList<>());
@@ -68,7 +63,6 @@ class Grafo {
     }
 
     /**
-     * PASSO 2 (Lista Q1/Q2): Inserção de arestas.
      * Registra a ligação na Matriz e na Lista de Adjacência.
      * Como o grafo não direcionado possui ligações bidirecionais,
      * registra tanto (u -> v) quanto (v -> u).
@@ -95,7 +89,6 @@ class Grafo {
     }
 
     /**
-     * PASSO 3 (Lista Q1): Exibição da Matriz de Adjacência.
      * Percorre linha por linha exibindo os valores 0 (sem aresta) e 1 (com aresta).
      */
     public void mostrarMatriz() {
@@ -110,7 +103,6 @@ class Grafo {
     }
 
     /**
-     * PASSO 3 (Lista Q2): Exibição da Lista de Adjacência.
      * Percorre cada vértice exibindo a coleção contendo seus respectivos vizinhos.
      */
     public void mostrarLista() {
@@ -121,7 +113,7 @@ class Grafo {
     }
 
     /**
-     * Exibição completa das duas representações (Lista Q9: Opção Mostrar Grafo).
+     * Exibição completa das duas representações.
      */
     public void mostrarGrafo() {
         System.out.println("\n=======================================");
@@ -132,7 +124,6 @@ class Grafo {
     }
 
     /**
-     * PARTE III e VII (Lista Q3 e Q7): Busca em Largura (BFS).
      * Estrutura auxiliar: FILA (Queue) com política FIFO (First In, First Out).
      * Controle de visitados: Vetor booleano visitado[].
      * Os vértices são marcados antes de enfileirar para evitar inserções duplicadas.
@@ -142,15 +133,14 @@ class Grafo {
      * - Novos vértices adicionados
      * - Conteúdo atual da fila
      * - Vértices já visitados
+     * Salva tudo em uma lista global de ordem de visitação para exibição final e/ou utilização.
      */
-    public void bfs(int inicio) {
+    public void bfs(int inicio, List<Integer> ordemVisitacao) {
         System.out.println("\n--- Busca em Largura (BFS) ---");
         // Vetor de visitados: inicializa todos como falso
         boolean[] visitado = new boolean[this.n];
         // Fila FIFO que gerencia a exploração por níveis
         Queue<Integer> fila = new LinkedList<>();
-        // Registra a ordem global em que os vértices são retirados e processados
-        List<Integer> ordemVisitacao = new ArrayList<>();
 
         // Marca o vértice inicial e enfileira
         visitado[inicio] = true;
@@ -185,19 +175,24 @@ class Grafo {
         System.out.println("\nSequência final da BFS: " + ordemVisitacao);
     }
 
+    public void bfs(int inicio) {
+        List<Integer> ordemVisitacao = new ArrayList<>();
+        bfs(inicio, ordemVisitacao);
+    }
+
     /**
-     * PARTE IV (Lista Q4): Busca em Profundidade (DFS Recursiva).
      * Utiliza a pilha de chamadas do sistema (call stack).
      * Emite as mensagens exigidas: "Entrando no vértice..." e "Retornando do vértice...".
+     * Salva tudo em uma lista global de ordem de visitação para exibição final e/ou utilização.
      */
-    public void dfsRecursiva(int inicio) {
+    public void dfsRecursiva(int inicio, List<Integer> ordemVisitacao) {
         System.out.println("\n--- Busca em Profundidade (DFS Recursiva) ---");
         boolean[] visitado = new boolean[this.n];
-        List<Integer> ordem = new ArrayList<>();
+        ordemVisitacao.add(inicio);
 
-        dfs(inicio, visitado, ordem);
+        dfs(inicio, visitado, ordemVisitacao);
         
-        System.out.println("\nSequência final de vértices visitados: " + ordem);
+        System.out.println("\nSequência final de vértices visitados: " + ordemVisitacao);
     }
 
     private void dfs(int u, boolean[] visitado, List<Integer> ordem) {
@@ -217,8 +212,12 @@ class Grafo {
         System.out.println("Retornando do vértice... " + u);
     }
 
+    public void dfsRecursiva(int inicio) {
+        List<Integer> ordemVisitacao = new ArrayList<>();
+        dfsRecursiva(inicio, ordemVisitacao);
+    }
+
     /**
-     * PARTE V e VIII (Lista Q5 e Q8): Busca em Profundidade Iterativa com Pilha Explícita.
      * Estrutura auxiliar: PILHA (Stack) seguindo o princípio LIFO (Last In, First Out).
      * Para visitar os menores vértices primeiro (ordem crescente), os vizinhos
      * são empilhados em ordem decrescente (inversa), pois o último empilhado será o primeiro a sair.
@@ -228,12 +227,12 @@ class Grafo {
      * - Vértices empilhados (ordem de inserção)
      * - Estado atual da pilha
      * - Vértices já visitados
+     * Salva tudo em uma lista global de ordem de visitação para exibição final e/ou utilização.
      */
-    public void dfsPilha(int inicio) {
+    public void dfsPilha(int inicio, List<Integer> ordemVisitacao) {
         System.out.println("\n--- Busca em Profundidade (DFS com Pilha) ---");
         boolean[] visitado = new boolean[this.n];
         Stack<Integer> pilha = new Stack<>();
-        List<Integer> ordemVisitacao = new ArrayList<>();
 
         // Empilha o vértice inicial
         pilha.push(inicio);
@@ -273,8 +272,12 @@ class Grafo {
         System.out.println("\nSequência final da DFS com Pilha: " + ordemVisitacao);
     }
 
+    public void dfsPilha(int inicio) {
+        List<Integer> ordemVisitacao = new ArrayList<>();
+        dfsPilha(inicio, ordemVisitacao);
+    }
+
     /**
-     * AULA 9 - ALGORITMO 1: EhArvore(G)
      * Finalidade: Verificar se um grafo não direcionado satisfaz simultaneamente
      * a contagem de arestas e a conectividade.
      *
@@ -294,45 +297,19 @@ class Grafo {
      */
     public boolean ehArvore() {
         // Árvores clássicas não direcionadas são definidas sobre grafos não direcionados
-        if (this.direcionado) {
-            return false;
-        }
+        if (this.direcionado) return false;
+        if (this.n == 0) return false;
 
-        if (this.n == 0) {
-            return false;
-        }
-
-        // PASSO 1: Se |E| != |V| - 1 então retornar FALSO
+        // Se |E| != |V| - 1 então retornar FALSO
         int m = getQuantidadeArestas();
         if (m != this.n - 1) {
             return false;
         }
 
-        // PASSO 2: Escolher um vértice inicial s (escolhemos s = 0)
         int s = 0;
-
-        // PASSO 3: visitados <- BFS(G, s) (testa conectividade)
-        boolean[] visitado = new boolean[this.n];
-        Queue<Integer> fila = new LinkedList<>();
-
-        visitado[s] = true;
-        fila.add(s);
-        int totalVisitados = 0;
-
-        while (!fila.isEmpty()) {
-            int u = fila.poll();
-            totalVisitados++;
-
-            for (int v : this.lista.get(u)) {
-                if (!visitado[v]) {
-                    visitado[v] = true;
-                    fila.add(v);
-                }
-            }
-        }
-
-        // PASSO 4: Se quantidade(visitados) = |V| então VERDADEIRO senão FALSO
-        return totalVisitados == this.n;
+        List<Integer> visitados = new ArrayList<>();
+        bfs(s, visitados);
+        return visitados.size() == this.n;
     }
 
     public void executarEhArvore() {
@@ -360,7 +337,6 @@ class Grafo {
     }
 
     /**
-     * AULA 9 - ALGORITMO 2: ArvoreGeradoraBFS(G, s)
      * Finalidade: Construir uma árvore geradora a partir das arestas de descoberta da BFS.
      *
      * ESTRUTURAS DE DADOS:
@@ -431,7 +407,6 @@ class Grafo {
     }
 
     /**
-     * AULA 9 - ALGORITMO 3: ArvoreGeradoraDFS(G, s)
      * Finalidade: Construir uma árvore geradora utilizando busca em profundidade com pilha explícita.
      *
      * ESTRUTURAS DE DADOS:
@@ -544,7 +519,6 @@ class Grafo {
     }
 
     /**
-     * AULA 9 - PARTE V: Comparação Estrutural entre BFS e DFS.
      * Analisa as diferenças entre as árvores geradoras geradas:
      * - Estratégia de busca (Níveis vs Profundidade)
      * - Estrutura auxiliar (Fila FIFO vs Pilha LIFO)
@@ -623,7 +597,6 @@ class Grafo {
     }
 
     /**
-     * AULA 9 - ALGORITMO 4: ArborescenciaBFS(G, r)
      * Finalidade: Construir uma arborescência em um grafo direcionado quando todos os vértices
      * são alcançáveis a partir da raiz escolhida.
      *
