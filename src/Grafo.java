@@ -1,8 +1,10 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Stack;
 
@@ -16,24 +18,33 @@ import java.util.Stack;
  * - Estudo Dirigido (Aula 9): EhArvore, ArvoreGeradoraBFS, ArvoreGeradoraDFS, Comparação BFS x DFS, ArborescenciaBFS.
  */
 class Grafo {
-    private int n;                      // Quantidade de vértices |V|
-    private boolean direcionado;        // Indica se o grafo é direcionado (dígrafos) ou não
-    private int[][] matriz;             // Matriz de adjacência
-    private List<List<Integer>> lista;  // Lista de adjacência
+    private int n;                          // Quantidade de vértices |V|
+    private boolean direcionado;            // Indica se o grafo é direcionado (dígrafos) ou não
+    private boolean ponderado;              // Indica se o grafo é ponderado ou não
+    private int[][] matriz;                 // Matriz de adjacência
+    private List<List<Vertice>> lista;      // Lista de adjacência
 
     /**
      * Construtor para grafo não direcionado padrão.
      */
     public Grafo(int numVertices) {
-        this(numVertices, false);
+        this(numVertices, false, false);
     }
 
     /**
-     * Construtor geral especificando se é direcionado ou não.
+     * Construtor especificando se é direcionado ou não.
      */
     public Grafo(int numVertices, boolean direcionado) {
+        this(numVertices, direcionado, false);
+    }
+
+    /**
+     * Construtor geral especificando se é direcionado ou não e se é ponderado ou não.
+     */
+    public Grafo(int numVertices, boolean direcionado, boolean ponderado) {
         this.n = numVertices;
         this.direcionado = direcionado;
+        this.ponderado = ponderado;
         
         this.matriz = new int[n][n];
         this.lista = new ArrayList<>();
@@ -69,21 +80,36 @@ class Grafo {
      * Os vizinhos são mantidos em ordem crescente para garantir percursos comparáveis e determinísticos.
      */
     public void adicionarAresta(int u, int v) {
+        if(this.ponderado) {
+            System.out.println("O grafo é ponderado. Adicione peso à aresta!");
+            return;
+        }
+
+        adicionarAresta(u, v, 0);
+    }
+
+    public void adicionarAresta(int u, int v, int peso) {
+        if(!this.ponderado && peso > 0) {
+            System.out.println("O grafo não é ponderado, o peso deve ser 0 ou não especificado!");
+            return;
+        }
+
         // Registra na Matriz de Adjacência
-        this.matriz[u][v] = 1;
+        this.matriz[u][v] = this.ponderado ? peso : 1;
+
+        Vertice uv = new Vertice(u, peso);
+        Vertice vv = new Vertice(v, peso);
 
         // Registra na Lista de Adjacência de u
         if (!this.lista.get(u).contains(v)) {
-            this.lista.get(u).add(v);
-            Collections.sort(this.lista.get(u));
+            this.lista.get(u).add(vv);
         }
 
         // Se o grafo for não direcionado, a aresta é simétrica
         if (!this.direcionado) {
-            this.matriz[v][u] = 1;
+            this.matriz[v][u] = this.ponderado ? peso : 1;
             if (!this.lista.get(v).contains(u)) {
-                this.lista.get(v).add(u);
-                Collections.sort(this.lista.get(v));
+                this.lista.get(v).add(uv);
             }
         }
     }
