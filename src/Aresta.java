@@ -1,27 +1,82 @@
+import java.util.Objects;
+
 /**
  * Representa uma Aresta (u, v) de um grafo não direcionado ou um Arco (u, v) de um dígrafo.
- * Utilizada pelos algoritmos de Árvore Geradora e Arborescência.
+ * Formalmente, em um grafo ponderado, uma aresta e = (u, v) pertencente ao conjunto de arestas E
+ * possui uma função de peso associada w: E -> R (ou Z).
+ * O peso expressa o custo, distância, latência ou capacidade da conexão entre dois vértices.
  */
 public class Aresta {
-    private int u;
-    private int v;
+    private Vertice origem;
+    private Vertice destino;
+    private int peso;
 
-    public Aresta(int u, int v) {
-        this.u = u;
-        this.v = v;
+    /**
+     * Construtor para aresta não ponderada (ou com peso padrão 1).
+     */
+    public Aresta(Vertice origem, Vertice destino) {
+        this(origem, destino, 1);
     }
 
-    public int getU() {
-        return this.u;
+    /**
+     * Construtor para aresta ponderada.
+     */
+    public Aresta(Vertice origem, Vertice destino, int peso) {
+        if (origem == null || destino == null) {
+            throw new IllegalArgumentException("Origem e destino de uma aresta não podem ser nulos.");
+        }
+        this.origem = origem;
+        this.destino = destino;
+        this.peso = peso;
     }
 
-    public int getV() {
-        return this.v;
+    public Vertice getOrigem() {
+        return this.origem;
+    }
+
+    public void setOrigem(Vertice origem) {
+        if (origem == null) {
+            throw new IllegalArgumentException("Origem não pode ser nula.");
+        }
+        this.origem = origem;
+    }
+
+    public Vertice getDestino() {
+        return this.destino;
+    }
+
+    public void setDestino(Vertice destino) {
+        if (destino == null) {
+            throw new IllegalArgumentException("Destino não pode ser nulo.");
+        }
+        this.destino = destino;
+    }
+
+    public int getPeso() {
+        return this.peso;
+    }
+
+    public void setPeso(int peso) {
+        this.peso = peso;
+    }
+
+    /**
+     * Métodos auxiliares de conveniência u e v.
+     */
+    public Vertice getU() {
+        return this.origem;
+    }
+
+    public Vertice getV() {
+        return this.destino;
     }
 
     @Override
     public String toString() {
-        return "(" + this.u + ", " + this.v + ")";
+        if (this.peso == 1) {
+            return "(" + this.origem + ", " + this.destino + ")";
+        }
+        return "(" + this.origem + ", " + this.destino + ", peso: " + this.peso + ")";
     }
 
     @Override
@@ -29,11 +84,13 @@ public class Aresta {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Aresta aresta = (Aresta) o;
-        return this.u == aresta.u && this.v == aresta.v;
+        return this.peso == aresta.peso &&
+               Objects.equals(this.origem, aresta.origem) &&
+               Objects.equals(this.destino, aresta.destino);
     }
 
     @Override
     public int hashCode() {
-        return 31 * this.u + this.v;
+        return Objects.hash(this.origem, this.destino, this.peso);
     }
 }

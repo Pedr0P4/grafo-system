@@ -11,18 +11,19 @@ import java.util.Stack;
 /**
  * Classe que representa um Grafo utilizando simultaneamente:
  * 1) Matriz de Adjacência (n x n)
- * 2) Lista de Adjacência
+ * 2) Lista de Adjacência com objetos do tipo Vertice
  *
  * Implementa todos os algoritmos exigidos:
  * - Lista de Exercícios: Matriz, Lista, BFS com rastreamento, DFS Recursiva, DFS com Pilha.
  * - Estudo Dirigido (Aula 9): EhArvore, ArvoreGeradoraBFS, ArvoreGeradoraDFS, Comparação BFS x DFS, ArborescenciaBFS.
  */
-class Grafo {
+public class Grafo {
     private int n;                          // Quantidade de vértices |V|
     private boolean direcionado;            // Indica se o grafo é direcionado (dígrafos) ou não
     private boolean ponderado;              // Indica se o grafo é ponderado ou não
     private int[][] matriz;                 // Matriz de adjacência
-    private List<List<Vertice>> lista;      // Lista de adjacência
+    private List<Vertice> vertices;         // Lista de vértices que compõem o grafo V
+    private List<List<Vertice>> lista;      // Lista de adjacência (vizinhos de cada vértice)
 
     /**
      * Construtor para grafo não direcionado padrão.
@@ -47,8 +48,27 @@ class Grafo {
         this.ponderado = ponderado;
         
         this.matriz = new int[n][n];
+        this.vertices = new ArrayList<>();
         this.lista = new ArrayList<>();
         for (int i = 0; i < n; i++) {
+            this.vertices.add(new Vertice(i));
+            this.lista.add(new ArrayList<>());
+        }
+    }
+
+    /**
+     * Construtor alternativo permitindo especificar rótulos personalizados para os vértices.
+     */
+    public Grafo(List<String> rotulos, boolean direcionado, boolean ponderado) {
+        this.n = rotulos.size();
+        this.direcionado = direcionado;
+        this.ponderado = ponderado;
+        
+        this.matriz = new int[n][n];
+        this.vertices = new ArrayList<>();
+        this.lista = new ArrayList<>();
+        for (String rotulo : rotulos) {
+            this.vertices.add(new Vertice(rotulo));
             this.lista.add(new ArrayList<>());
         }
     }
@@ -59,6 +79,25 @@ class Grafo {
 
     public boolean isDirecionado() {
         return this.direcionado;
+    }
+
+    public boolean isPonderado() {
+        return this.ponderado;
+    }
+
+    public List<Vertice> getVertices() {
+        return Collections.unmodifiableList(this.vertices);
+    }
+
+    public Vertice getVertice(int indice) {
+        if (indice < 0 || indice >= this.n) {
+            throw new IndexOutOfBoundsException("Índice de vértice inválido: " + indice);
+        }
+        return this.vertices.get(indice);
+    }
+
+    public int getIndiceVertice(Vertice v) {
+        return this.vertices.indexOf(v);
     }
 
     /**
@@ -77,45 +116,55 @@ class Grafo {
      * Registra a ligação na Matriz e na Lista de Adjacência.
      * Como o grafo não direcionado possui ligações bidirecionais,
      * registra tanto (u -> v) quanto (v -> u).
-     * Os vizinhos são mantidos em ordem crescente para garantir percursos comparáveis e determinísticos.
+     * Os vizinhos são mantidos em ordem para garantir percursos comparáveis e determinísticos.
      */
     public void adicionarAresta(int u, int v) {
-        if(this.ponderado) {
+        if (this.ponderado) {
             System.out.println("O grafo é ponderado. Adicione peso à aresta!");
             return;
         }
 
-        adicionarAresta(u, v, 0);
+        adicionarAresta(u, v, 1);
     }
 
     public void adicionarAresta(int u, int v, int peso) {
-        if(!this.ponderado && peso > 0) {
-            System.out.println("O grafo não é ponderado, o peso deve ser 0 ou não especificado!");
+        if (!this.ponderado && peso > 1) {
+            System.out.println("O grafo não é ponderado, o peso não deve ser especificado ou deve ser 1!");
             return;
         }
 
         // Registra na Matriz de Adjacência
         this.matriz[u][v] = this.ponderado ? peso : 1;
 
-        Vertice uv = new Vertice(u, peso);
-        Vertice vv = new Vertice(v, peso);
+        Vertice verticeU = this.vertices.get(u);
+        Vertice verticeV = this.vertices.get(v);
 
         // Registra na Lista de Adjacência de u
-        if (!this.lista.get(u).contains(v)) {
-            this.lista.get(u).add(vv);
+        if (!this.lista.get(u).contains(verticeV)) {
+            this.lista.get(u).add(verticeV);
+            Collections.sort(this.lista.get(u));
         }
 
         // Se o grafo for não direcionado, a aresta é simétrica
         if (!this.direcionado) {
             this.matriz[v][u] = this.ponderado ? peso : 1;
-            if (!this.lista.get(v).contains(u)) {
-                this.lista.get(v).add(uv);
+            if (!this.lista.get(v).contains(verticeU)) {
+                this.lista.get(v).add(verticeU);
+                Collections.sort(this.lista.get(v));
             }
         }
     }
 
+    public void adicionarAresta(Vertice u, Vertice v) {
+        adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v));
+    }
+
+    public void adicionarAresta(Vertice u, Vertice v, int peso) {
+        adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v), peso);
+    }
+
     /**
-     * Percorre linha por linha exibindo os valores 0 (sem aresta) e 1 (com aresta).
+     * Percorre linha por linha exibindo os valores da matriz de adjacência.
      */
     public void mostrarMatriz() {
         System.out.println("\n--- Matriz de Adjacência (" + this.n + "x" + this.n + ") ---");
@@ -134,7 +183,7 @@ class Grafo {
     public void mostrarLista() {
         System.out.println("\n--- Lista de Adjacência ---");
         for (int u = 0; u < this.n; u++) {
-            System.out.println(u + " -> " + this.lista.get(u));
+            System.out.println(this.vertices.get(u) + " -> " + this.lista.get(u));
         }
     }
 
@@ -177,18 +226,19 @@ class Grafo {
             int u = fila.poll();
             ordemVisitacao.add(u);
 
-            System.out.println("\nVértice retirado da fila: " + u);
+            System.out.println("\nVértice retirado da fila: " + this.vertices.get(u));
 
-            List<Integer> vizinhosEncontrados = this.lista.get(u);
-            List<Integer> novosAdicionados = new ArrayList<>();
+            List<Vertice> vizinhosEncontrados = this.lista.get(u);
+            List<Vertice> novosAdicionados = new ArrayList<>();
 
             // Analisa todos os vizinhos do vértice u
-            for (int v : vizinhosEncontrados) {
+            for (Vertice vizinho : vizinhosEncontrados) {
+                int v = this.vertices.indexOf(vizinho);
                 // Só processa vizinhos ainda não visitados
                 if (!visitado[v]) {
                     visitado[v] = true;      // Marca antes de enfileirar para evitar duplicatas
                     fila.add(v);              // Enfileira para processamento futuro
-                    novosAdicionados.add(v);
+                    novosAdicionados.add(vizinho);
                 }
             }
 
@@ -214,7 +264,6 @@ class Grafo {
     public void dfsRecursiva(int inicio, List<Integer> ordemVisitacao) {
         System.out.println("\n--- Busca em Profundidade (DFS Recursiva) ---");
         boolean[] visitado = new boolean[this.n];
-        ordemVisitacao.add(inicio);
 
         dfs(inicio, visitado, ordemVisitacao);
         
@@ -224,10 +273,11 @@ class Grafo {
     private void dfs(int u, boolean[] visitado, List<Integer> ordem) {
         visitado[u] = true;
         ordem.add(u);
-        System.out.println("Entrando no vértice... " + u);
+        System.out.println("Entrando no vértice... " + this.vertices.get(u));
 
         // Percorre todos os vizinhos de u em ordem crescente
-        for (int v : this.lista.get(u)) {
+        for (Vertice vizinho : this.lista.get(u)) {
+            int v = this.vertices.indexOf(vizinho);
             if (!visitado[v]) {
                 // Chamada recursiva: aprofunda a busca no vizinho não visitado
                 dfs(v, visitado, ordem);
@@ -235,7 +285,7 @@ class Grafo {
         }
 
         // Ao esgotar os vizinhos não visitados, retorna para a chamada anterior (backtracking)
-        System.out.println("Retornando do vértice... " + u);
+        System.out.println("Retornando do vértice... " + this.vertices.get(u));
     }
 
     public void dfsRecursiva(int inicio) {
@@ -272,19 +322,20 @@ class Grafo {
                 visitado[u] = true;
                 ordemVisitacao.add(u);
 
-                System.out.println("\nVértice retirado do topo: " + u);
+                System.out.println("\nVértice retirado do topo: " + this.vertices.get(u));
 
-                List<Integer> vizinhos = this.lista.get(u);
+                List<Vertice> vizinhos = this.lista.get(u);
                 // Inverte a lista de vizinhos para empilhar em ordem decrescente
-                List<Integer> vizinhosReversos = new ArrayList<>(vizinhos);
+                List<Vertice> vizinhosReversos = new ArrayList<>(vizinhos);
                 Collections.reverse(vizinhosReversos);
                 
-                List<Integer> empilhados = new ArrayList<>();
+                List<Vertice> empilhados = new ArrayList<>();
 
-                for (int v : vizinhosReversos) {
+                for (Vertice vizinho : vizinhosReversos) {
+                    int v = this.vertices.indexOf(vizinho);
                     if (!visitado[v]) {
                         pilha.push(v);
-                        empilhados.add(v);
+                        empilhados.add(vizinho);
                     }
                 }
 
@@ -388,11 +439,13 @@ class Grafo {
         // 4. Enquanto Q não estiver vazia:
         while (!fila.isEmpty()) {
             int u = fila.poll(); // u <- desenfileirar(Q)
-            for (int v : this.lista.get(u)) { // Para cada v em Adj[u]
+            for (Vertice vizinho : this.lista.get(u)) { // Para cada vizinho em Adj[u]
+                int v = this.vertices.indexOf(vizinho);
                 if (!visitado[v]) { // Se NÃO visitado[v]
                     visitado[v] = true;
                     // Aresta da árvore geradora registrada na descoberta do novo vértice
-                    t.add(new Aresta(u, v));
+                    int peso = this.matriz[u][v];
+                    t.add(new Aresta(this.vertices.get(u), vizinho, peso));
                     fila.add(v); // enfileirar(Q, v)
                 }
             }
@@ -404,7 +457,7 @@ class Grafo {
 
     public void executarArvoreGeradoraBFS(int inicio) {
         System.out.println("\n--- Árvore Geradora por BFS ---");
-        System.out.println("Vértice inicial (raiz): " + inicio);
+        System.out.println("Vértice inicial (raiz): " + this.vertices.get(inicio));
 
         List<Aresta> t = arvoreGeradoraBFS(inicio);
 
@@ -413,8 +466,10 @@ class Grafo {
         boolean[] verticesAlcancados = new boolean[this.n];
         verticesAlcancados[inicio] = true;
         for (Aresta a : t) {
-            verticesAlcancados[a.getU()] = true;
-            verticesAlcancados[a.getV()] = true;
+            int uIdx = this.vertices.indexOf(a.getOrigem());
+            int vIdx = this.vertices.indexOf(a.getDestino());
+            if (uIdx != -1) verticesAlcancados[uIdx] = true;
+            if (vIdx != -1) verticesAlcancados[vIdx] = true;
         }
 
         int countVertices = 0;
@@ -428,7 +483,7 @@ class Grafo {
         if (t.size() == this.n - 1 && countVertices == this.n) {
             System.out.println("Status: Árvore geradora válida cobrindo todos os vértices.");
         } else {
-            System.out.println("Status: O grafo é desconexo; cobriu apenas a componente conexa do vértice " + inicio + ".");
+            System.out.println("Status: O grafo é desconexo; cobriu apenas a componente conexa do vértice " + this.vertices.get(inicio) + ".");
         }
     }
 
@@ -464,13 +519,15 @@ class Grafo {
             if (!visitado[u]) { // Se NÃO visitado[u]
                 visitado[u] = true;
                 if (pai != -1) { // se pai != NULO
-                    t.add(new Aresta(pai, u)); // T <- T ∪ {(pai, u)}
+                    int peso = this.matriz[pai][u];
+                    t.add(new Aresta(this.vertices.get(pai), this.vertices.get(u), peso)); // T <- T ∪ {(pai, u)}
                 }
 
                 // Para cada v em Adj[u] em ordem inversa
-                List<Integer> vizinhos = this.lista.get(u);
+                List<Vertice> vizinhos = this.lista.get(u);
                 for (int i = vizinhos.size() - 1; i >= 0; i--) {
-                    int v = vizinhos.get(i);
+                    Vertice vizinho = vizinhos.get(i);
+                    int v = this.vertices.indexOf(vizinho);
                     if (!visitado[v]) {
                         pilha.push(new int[]{v, u}); // empilhar(P, (v, u))
                     }
@@ -484,7 +541,7 @@ class Grafo {
 
     public void executarArvoreGeradoraDFS(int inicio) {
         System.out.println("\n--- Árvore Geradora por DFS (Pilha Explícita) ---");
-        System.out.println("Vértice inicial (raiz): " + inicio);
+        System.out.println("Vértice inicial (raiz): " + this.vertices.get(inicio));
 
         List<Aresta> t = arvoreGeradoraDFS(inicio);
 
@@ -493,8 +550,10 @@ class Grafo {
         boolean[] verticesAlcancados = new boolean[this.n];
         verticesAlcancados[inicio] = true;
         for (Aresta a : t) {
-            verticesAlcancados[a.getU()] = true;
-            verticesAlcancados[a.getV()] = true;
+            int uIdx = this.vertices.indexOf(a.getOrigem());
+            int vIdx = this.vertices.indexOf(a.getDestino());
+            if (uIdx != -1) verticesAlcancados[uIdx] = true;
+            if (vIdx != -1) verticesAlcancados[vIdx] = true;
         }
 
         int countVertices = 0;
@@ -508,7 +567,7 @@ class Grafo {
         if (t.size() == this.n - 1 && countVertices == this.n) {
             System.out.println("Status: Árvore geradora válida cobrindo todos os vértices.");
         } else {
-            System.out.println("Status: O grafo é desconexo; cobriu apenas a componente conexa do vértice " + inicio + ".");
+            System.out.println("Status: O grafo é desconexo; cobriu apenas a componente conexa do vértice " + this.vertices.get(inicio) + ".");
         }
     }
 
@@ -521,8 +580,12 @@ class Grafo {
             adj.add(new ArrayList<>());
         }
         for (Aresta a : arestas) {
-            adj.get(a.getU()).add(a.getV());
-            adj.get(a.getV()).add(a.getU());
+            int u = this.vertices.indexOf(a.getOrigem());
+            int v = this.vertices.indexOf(a.getDestino());
+            if (u != -1 && v != -1) {
+                adj.get(u).add(v);
+                adj.get(v).add(u);
+            }
         }
 
         int[] niveis = new int[this.n];
@@ -554,7 +617,7 @@ class Grafo {
      */
     public void compararBfsEDfs(int inicio) {
         System.out.println("\n========================================================");
-        System.out.println("         COMPARAÇÃO ENTRE BFS E DFS (Raiz = " + inicio + ")");
+        System.out.println("         COMPARAÇÃO ENTRE BFS E DFS (Raiz = " + this.vertices.get(inicio) + ")");
         System.out.println("========================================================");
 
         List<Aresta> tBfs = arvoreGeradoraBFS(inicio);
@@ -646,10 +709,12 @@ class Grafo {
         while (!fila.isEmpty()) {
             int u = fila.poll();
             // Examina somente os arcos que saem de u (u -> v)
-            for (int v : this.lista.get(u)) {
+            for (Vertice vizinho : this.lista.get(u)) {
+                int v = this.vertices.indexOf(vizinho);
                 if (!visitado[v]) {
                     visitado[v] = true;
-                    a.add(new Aresta(u, v)); // Registra arco da arborescência
+                    int peso = this.matriz[u][v];
+                    a.add(new Aresta(this.vertices.get(u), vizinho, peso)); // Registra arco da arborescência
                     fila.add(v);
                 }
             }
@@ -668,7 +733,7 @@ class Grafo {
 
     public void executarArborescenciaBFS(int raiz) {
         System.out.println("\n--- Arborescência por BFS (Grafo Direcionado) ---");
-        System.out.println("Vértice raiz escolhido: " + raiz);
+        System.out.println("Vértice raiz escolhido: " + this.vertices.get(raiz));
         if (!this.direcionado) {
             System.out.println("Aviso: O grafo atual é não direcionado. Arborescência é definida sobre grafos direcionados.");
         }
@@ -677,7 +742,7 @@ class Grafo {
 
         if (a == null) {
             System.out.println("Resultado: FALHA");
-            System.out.println("Existem vértices inalcançáveis a partir da raiz " + raiz + ".");
+            System.out.println("Existem vértices inalcançáveis a partir da raiz " + this.vertices.get(raiz) + ".");
             System.out.println("Não é possível construir uma arborescência com essa raiz.");
         } else {
             System.out.println("Resultado: SUCESSO");
@@ -687,4 +752,6 @@ class Grafo {
             System.out.println("Verificação (|A| == |V| - 1): " + (a.size() == this.n - 1));
         }
     }
+}
+
 }
