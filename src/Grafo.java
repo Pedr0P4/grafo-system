@@ -2,20 +2,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.Stack;
 
 /**
  * Classe que representa um Grafo utilizando simultaneamente:
  * 1) Matriz de Adjacência (n x n)
- * 2) Lista de Adjacência com objetos do tipo Vertice
+ * 2) Lista de Adjacência com objetos do tipo Vertice e Aresta
  *
  * Implementa todos os algoritmos exigidos:
  * - Lista de Exercícios: Matriz, Lista, BFS com rastreamento, DFS Recursiva, DFS com Pilha.
  * - Estudo Dirigido (Aula 9): EhArvore, ArvoreGeradoraBFS, ArvoreGeradoraDFS, Comparação BFS x DFS, ArborescenciaBFS.
+ * - Estudo Dirigido (DIM0549 - UFRN): Construção e Percurso em Grafos (Etapas 1, 2, 3, 6, 7, 8, 9 com Dijkstra e DFS Iterativa).
  */
 public class Grafo {
     private int n;                          // Quantidade de vértices |V|
@@ -73,6 +77,20 @@ public class Grafo {
         }
     }
 
+    /**
+     * Construtor dinâmico conforme a Seção 2 do Estudo Dirigido:
+     * vertices <- conjunto vazio
+     * adj <- dicionário vazio
+     */
+    public Grafo(boolean direcionado, boolean ponderado) {
+        this.n = 0;
+        this.direcionado = direcionado;
+        this.ponderado = ponderado;
+        this.matriz = new int[0][0];
+        this.vertices = new ArrayList<>();
+        this.lista = new ArrayList<>();
+    }
+
     public int getNumVertices() {
         return this.n;
     }
@@ -96,8 +114,63 @@ public class Grafo {
         return this.vertices.get(indice);
     }
 
+    public Vertice getVerticePorRotulo(String rotulo) {
+        if (rotulo == null) return null;
+        for (Vertice v : this.vertices) {
+            if (v.getRotulo().equalsIgnoreCase(rotulo.trim())) {
+                return v;
+            }
+        }
+        return null;
+    }
+
     public int getIndiceVertice(Vertice v) {
         return this.vertices.indexOf(v);
+    }
+
+    public int getIndiceVertice(String rotulo) {
+        for (int i = 0; i < this.vertices.size(); i++) {
+            if (this.vertices.get(i).getRotulo().equalsIgnoreCase(rotulo.trim())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * PASSO 2 – CADASTRO DE UM VÉRTICE (Seção 2 do Estudo Dirigido)
+     * procedimento Adicionar_Vertice(G, v):
+     *   se v não pertence a G.vertices então
+     *     inserir v em G.vertices
+     *     G.adj[v] <- lista vazia
+     *   fim-se
+     * fim-procedimento
+     */
+    public Vertice adicionarVertice(Vertice v) {
+        if (!this.vertices.contains(v)) {
+            this.vertices.add(v);
+            this.lista.add(new ArrayList<>());
+            this.n = this.vertices.size();
+            redimensionarMatriz(this.n);
+            return v;
+        }
+        return this.vertices.get(this.vertices.indexOf(v));
+    }
+
+    public Vertice adicionarVertice(String rotulo) {
+        return adicionarVertice(new Vertice(rotulo));
+    }
+
+    private void redimensionarMatriz(int novoTamanho) {
+        int[][] novaMatriz = new int[novoTamanho][novoTamanho];
+        if (this.matriz != null) {
+            for (int i = 0; i < this.matriz.length && i < novoTamanho; i++) {
+                for (int j = 0; j < this.matriz[i].length && j < novoTamanho; j++) {
+                    novaMatriz[i][j] = this.matriz[i][j];
+                }
+            }
+        }
+        this.matriz = novaMatriz;
     }
 
     /**
@@ -110,6 +183,98 @@ public class Grafo {
             total += this.lista.get(i).size();
         }
         return this.direcionado ? total : total / 2;
+    }
+
+    // =========================================================================
+    // MÉTODOS DE INSERÇÃO DE ARESTAS DO ESTUDO DIRIGIDO (DIM0549)
+    // =========================================================================
+
+    /**
+     * ETAPA 1 - PASSO 1: Função para inserir um arco orientado (Seção 3)
+     * procedimento Adicionar_Aresta_Dirigida(G, u, v):
+     *   Adicionar_Vertice(G, u)
+     *   Adicionar_Vertice(G, v)
+     *   inserir v em G.adj[u]
+     * fim-procedimento
+     */
+    public void adicionarArestaDirigida(Vertice u, Vertice v) {
+        Vertice orig = adicionarVertice(u);
+        Vertice dest = adicionarVertice(v);
+
+        int uIdx = this.vertices.indexOf(orig);
+        int vIdx = this.vertices.indexOf(dest);
+
+        this.matriz[uIdx][vIdx] = 1;
+
+        if (!this.lista.get(uIdx).contains(dest)) {
+            this.lista.get(uIdx).add(dest);
+            Collections.sort(this.lista.get(uIdx));
+        }
+    }
+
+    public void adicionarArestaDirigida(String u, String v) {
+        adicionarArestaDirigida(new Vertice(u), new Vertice(v));
+    }
+
+    /**
+     * ETAPA 2 - PASSO 1: Função para aresta não direcionada com peso (Seção 4)
+     * procedimento Adicionar_Aresta_Ponderada(G, u, v, peso):
+     *   Adicionar_Vertice(G, u)
+     *   Adicionar_Vertice(G, v)
+     *   inserir (v, peso) em G.adj[u]
+     *   inserir (u, peso) em G.adj[v]
+     * fim-procedimento
+     */
+    public void adicionarArestaPonderada(Vertice u, Vertice v, int peso) {
+        Vertice orig = adicionarVertice(u);
+        Vertice dest = adicionarVertice(v);
+
+        int uIdx = this.vertices.indexOf(orig);
+        int vIdx = this.vertices.indexOf(dest);
+
+        this.matriz[uIdx][vIdx] = peso;
+        this.matriz[vIdx][uIdx] = peso;
+
+        if (!this.lista.get(uIdx).contains(dest)) {
+            this.lista.get(uIdx).add(dest);
+            Collections.sort(this.lista.get(uIdx));
+        }
+
+        if (!this.lista.get(vIdx).contains(orig)) {
+            this.lista.get(vIdx).add(orig);
+            Collections.sort(this.lista.get(vIdx));
+        }
+    }
+
+    public void adicionarArestaPonderada(String u, String v, int peso) {
+        adicionarArestaPonderada(new Vertice(u), new Vertice(v), peso);
+    }
+
+    /**
+     * ETAPA 3 - PASSO 1: Inserção de arco dirigido e ponderado (Seção 5)
+     * procedimento Adicionar_Arco_Ponderado(G, u, v, peso):
+     *   Adicionar_Vertice(G, u)
+     *   Adicionar_Vertice(G, v)
+     *   inserir (v, peso) em G.adj[u]
+     * fim-procedimento
+     */
+    public void adicionarArcoPonderado(Vertice u, Vertice v, int peso) {
+        Vertice orig = adicionarVertice(u);
+        Vertice dest = adicionarVertice(v);
+
+        int uIdx = this.vertices.indexOf(orig);
+        int vIdx = this.vertices.indexOf(dest);
+
+        this.matriz[uIdx][vIdx] = peso;
+
+        if (!this.lista.get(uIdx).contains(dest)) {
+            this.lista.get(uIdx).add(dest);
+            Collections.sort(this.lista.get(uIdx));
+        }
+    }
+
+    public void adicionarArcoPonderado(String u, String v, int peso) {
+        adicionarArcoPonderado(new Vertice(u), new Vertice(v), peso);
     }
 
     /**
@@ -156,11 +321,48 @@ public class Grafo {
     }
 
     public void adicionarAresta(Vertice u, Vertice v) {
-        adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v));
+        if (this.direcionado) {
+            adicionarArestaDirigida(u, v);
+        } else {
+            adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v));
+        }
     }
 
     public void adicionarAresta(Vertice u, Vertice v, int peso) {
-        adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v), peso);
+        if (this.direcionado) {
+            adicionarArcoPonderado(u, v, peso);
+        } else {
+            adicionarArestaPonderada(u, v, peso);
+        }
+    }
+
+    /**
+     * PASSO 3 – CONFERÊNCIA DA REPRESENTAÇÃO (Etapas 1, 2 e 3 do Estudo Dirigido)
+     * para cada u em G.vertices em ordem alfabética faça
+     *   Escrever u, " → ", G.adj[u]
+     * fim-para
+     */
+    public void conferirRepresentacao() {
+        System.out.println("\n--- Conferência da Lista de Adjacência ---");
+        List<Vertice> ordenados = new ArrayList<>(this.vertices);
+        Collections.sort(ordenados);
+
+        for (Vertice u : ordenados) {
+            int uIdx = this.vertices.indexOf(u);
+            List<Vertice> vizinhos = this.lista.get(uIdx);
+
+            if (!this.ponderado) {
+                System.out.println(u + " → " + vizinhos);
+            } else {
+                List<String> entradasPonderadas = new ArrayList<>();
+                for (Vertice v : vizinhos) {
+                    int vIdx = this.vertices.indexOf(v);
+                    int peso = this.matriz[uIdx][vIdx];
+                    entradasPonderadas.add("(" + v + ", " + peso + ")");
+                }
+                System.out.println(u + " → " + entradasPonderadas);
+            }
+        }
     }
 
     /**
@@ -168,10 +370,15 @@ public class Grafo {
      */
     public void mostrarMatriz() {
         System.out.println("\n--- Matriz de Adjacência (" + this.n + "x" + this.n + ") ---");
+        System.out.print("     ");
+        for (Vertice v : this.vertices) {
+            System.out.printf("%4s ", v);
+        }
+        System.out.println();
         for (int i = 0; i < this.n; i++) {
-            System.out.print("[");
+            System.out.printf("%-4s [", this.vertices.get(i));
             for (int j = 0; j < this.n; j++) {
-                System.out.print(this.matriz[i][j] + (j < this.n - 1 ? ", " : ""));
+                System.out.printf("%4d%s", this.matriz[i][j], (j < this.n - 1 ? ", " : ""));
             }
             System.out.println("]");
         }
@@ -181,10 +388,7 @@ public class Grafo {
      * Percorre cada vértice exibindo a coleção contendo seus respectivos vizinhos.
      */
     public void mostrarLista() {
-        System.out.println("\n--- Lista de Adjacência ---");
-        for (int u = 0; u < this.n; u++) {
-            System.out.println(this.vertices.get(u) + " -> " + this.lista.get(u));
-        }
+        conferirRepresentacao();
     }
 
     /**
@@ -195,8 +399,374 @@ public class Grafo {
         System.out.println("     REPRESENTAÇÃO COMPLETA DO GRAFO   ");
         System.out.println("=======================================");
         mostrarMatriz();
-        mostrarLista();
+        conferirRepresentacao();
     }
+
+    // =========================================================================
+    // SEÇÃO 6: ALGORITMO BFS (Busca em Largura) – Rastreamento do Estudo Dirigido
+    // =========================================================================
+
+    public List<Vertice> bfsEstudoDirigido(String rotuloOrigem) {
+        Vertice origem = getVerticePorRotulo(rotuloOrigem);
+        if (origem == null) {
+            throw new IllegalArgumentException("Vértice de origem não encontrado: " + rotuloOrigem);
+        }
+        return bfsEstudoDirigido(origem);
+    }
+
+    /**
+     * Algoritmo BFS conforme Seção 6 do Estudo Dirigido:
+     * - Visitados inicializados como falso
+     * - Fila FIFO Q
+     * - Rastreamento: "Processando: u | Fila: Q"
+     * - Vizinhos em ordem alfabética
+     */
+    public List<Vertice> bfsEstudoDirigido(Vertice origem) {
+        System.out.println("\n--- [SEÇÃO 6] Busca em Largura (BFS) a partir de " + origem + " ---");
+        
+        // PASSO 1 – PREPARAÇÃO DO CONTROLE DE VISITAS
+        Map<Vertice, Boolean> visitado = new HashMap<>();
+        for (Vertice v : this.vertices) {
+            visitado.put(v, false);
+        }
+        Queue<Vertice> fila = new LinkedList<>();
+        List<Vertice> ordem = new ArrayList<>();
+
+        // PASSO 2 – INICIALIZAÇÃO NA ORIGEM
+        visitado.put(origem, true);
+        fila.add(origem);
+
+        // PASSO 3 – PERCURSO POR CAMADAS
+        while (!fila.isEmpty()) {
+            Vertice u = fila.poll();
+            ordem.add(u);
+            System.out.println("Processando: " + u + " | Fila: " + fila);
+
+            int uIdx = this.vertices.indexOf(u);
+            List<Vertice> vizinhos = this.lista.get(uIdx);
+
+            for (Vertice v : vizinhos) {
+                if (!visitado.get(v)) {
+                    visitado.put(v, true);
+                    fila.add(v);
+                }
+            }
+        }
+
+        System.out.println("Sequência final BFS: " + ordem);
+        return ordem;
+    }
+
+    // =========================================================================
+    // SEÇÃO 7: ALGORITMO DFS (Busca em Profundidade) – Rastreamento do Estudo Dirigido
+    // =========================================================================
+
+    public List<Vertice> dfsEstudoDirigido(String rotuloOrigem) {
+        Vertice origem = getVerticePorRotulo(rotuloOrigem);
+        if (origem == null) {
+            throw new IllegalArgumentException("Vértice de origem não encontrado: " + rotuloOrigem);
+        }
+        return dfsEstudoDirigido(origem);
+    }
+
+    /**
+     * Algoritmo DFS Recursiva conforme Seção 7 do Estudo Dirigido:
+     * - Visitados inicializados como falso
+     * - Mensagens: "Entrando no vértice: u" e "Retornando do vértice: u"
+     * - Vizinhos em ordem alfabética
+     */
+    public List<Vertice> dfsEstudoDirigido(Vertice origem) {
+        System.out.println("\n--- [SEÇÃO 7] Busca em Profundidade (DFS Recursiva) a partir de " + origem + " ---");
+        
+        // PASSO 1 – PREPARAÇÃO
+        Map<Vertice, Boolean> visitado = new HashMap<>();
+        for (Vertice v : this.vertices) {
+            visitado.put(v, false);
+        }
+        List<Vertice> ordem = new ArrayList<>();
+
+        // PASSO 2 – INÍCIO DA BUSCA EM PROFUNDIDADE
+        buscaProfundidade(origem, visitado, ordem);
+
+        System.out.println("Sequência final DFS Recursiva: " + ordem);
+        return ordem;
+    }
+
+    private void buscaProfundidade(Vertice u, Map<Vertice, Boolean> visitado, List<Vertice> ordem) {
+        visitado.put(u, true);
+        ordem.add(u);
+        System.out.println("Entrando no vértice: " + u);
+
+        int uIdx = this.vertices.indexOf(u);
+        List<Vertice> vizinhos = this.lista.get(uIdx);
+
+        for (Vertice v : vizinhos) {
+            if (!visitado.get(v)) {
+                buscaProfundidade(v, visitado, ordem);
+            }
+        }
+
+        System.out.println("Retornando do vértice: " + u);
+    }
+
+    // =========================================================================
+    // SEÇÃO 9: EXTENSÃO OPCIONAL – DFS Iterativa com Pilha Explícita
+    // =========================================================================
+
+    public List<Vertice> dfsIterativaEstudoDirigido(String rotuloOrigem) {
+        Vertice origem = getVerticePorRotulo(rotuloOrigem);
+        if (origem == null) {
+            throw new IllegalArgumentException("Vértice de origem não encontrado: " + rotuloOrigem);
+        }
+        return dfsIterativaEstudoDirigido(origem);
+    }
+
+    /**
+     * DFS iterativa usando pilha explícita (Seção 9 - Extensão opcional).
+     * Documenta a ordem de empilhamento e inverte a inserção dos vizinhos
+     * para reproduzir exatamente o mesmo percurso da DFS recursiva.
+     */
+    public List<Vertice> dfsIterativaEstudoDirigido(Vertice origem) {
+        System.out.println("\n--- [SEÇÃO 9] DFS Iterativa com Pilha Explícita a partir de " + origem + " ---");
+        Map<Vertice, Boolean> visitado = new HashMap<>();
+        for (Vertice v : this.vertices) {
+            visitado.put(v, false);
+        }
+        Stack<Vertice> pilha = new Stack<>();
+        List<Vertice> ordem = new ArrayList<>();
+
+        pilha.push(origem);
+        System.out.println("Empilhando raiz inicial: " + origem);
+
+        while (!pilha.isEmpty()) {
+            Vertice u = pilha.pop();
+
+            if (!visitado.get(u)) {
+                visitado.put(u, true);
+                ordem.add(u);
+                System.out.println("\nVértice retirado do topo (visitado): " + u);
+
+                int uIdx = this.vertices.indexOf(u);
+                List<Vertice> vizinhos = this.lista.get(uIdx);
+
+                // Empilha em ordem inversa para que o menor vizinho alfabético fique no topo
+                List<Vertice> empilhados = new ArrayList<>();
+                for (int i = vizinhos.size() - 1; i >= 0; i--) {
+                    Vertice v = vizinhos.get(i);
+                    if (!visitado.get(v)) {
+                        pilha.push(v);
+                        empilhados.add(v);
+                    }
+                }
+                System.out.println("Vizinhos empilhados (ordem de inserção na pilha): " + empilhados);
+                System.out.println("Estado atual da pilha: " + pilha);
+            }
+        }
+
+        System.out.println("\nSequência final DFS Iterativa: " + ordem);
+        return ordem;
+    }
+
+    // =========================================================================
+    // SEÇÃO 9: DESAFIO DE INTEGRAÇÃO – ALGORITMO DE DIJKSTRA
+    // =========================================================================
+
+    public static class ResultadoDijkstra {
+        public Vertice origem;
+        public Map<Vertice, Integer> distancias = new LinkedHashMap<>();
+        public Map<Vertice, Vertice> predecessores = new LinkedHashMap<>();
+
+        public List<Vertice> reconstruirCaminho(Vertice destino) {
+            List<Vertice> caminho = new ArrayList<>();
+            Vertice atual = destino;
+            while (atual != null) {
+                caminho.add(0, atual);
+                atual = predecessores.get(atual);
+            }
+            if (caminho.isEmpty() || !caminho.get(0).equals(origem)) {
+                return Collections.emptyList();
+            }
+            return caminho;
+        }
+    }
+
+    public ResultadoDijkstra dijkstra(String rotuloOrigem) {
+        Vertice orig = getVerticePorRotulo(rotuloOrigem);
+        if (orig == null) {
+            throw new IllegalArgumentException("Vértice de origem não encontrado: " + rotuloOrigem);
+        }
+        return dijkstra(orig);
+    }
+
+    /**
+     * Aplica o algoritmo de Dijkstra a partir do vértice de origem (Seção 9).
+     * Exige pesos não negativos.
+     */
+    public ResultadoDijkstra dijkstra(Vertice origem) {
+        ResultadoDijkstra res = new ResultadoDijkstra();
+        res.origem = origem;
+
+        for (Vertice v : this.vertices) {
+            res.distancias.put(v, Integer.MAX_VALUE);
+            res.predecessores.put(v, null);
+        }
+        res.distancias.put(origem, 0);
+
+        Set<Vertice> naoVisitados = new HashSet<>(this.vertices);
+
+        while (!naoVisitados.isEmpty()) {
+            Vertice u = null;
+            int menorDist = Integer.MAX_VALUE;
+
+            for (Vertice v : naoVisitados) {
+                int d = res.distancias.get(v);
+                if (d < menorDist) {
+                    menorDist = d;
+                    u = v;
+                }
+            }
+
+            if (u == null || menorDist == Integer.MAX_VALUE) {
+                break;
+            }
+
+            naoVisitados.remove(u);
+
+            int uIdx = this.vertices.indexOf(u);
+            List<Vertice> vizinhos = this.lista.get(uIdx);
+
+            for (Vertice v : vizinhos) {
+                if (naoVisitados.contains(v)) {
+                    int vIdx = this.vertices.indexOf(v);
+                    int peso = this.matriz[uIdx][vIdx];
+                    if (peso < 0) {
+                        throw new IllegalStateException("Dijkstra não suporta arestas com peso negativo!");
+                    }
+                    int alt = res.distancias.get(u) + peso;
+                    if (alt < res.distancias.get(v)) {
+                        res.distancias.put(v, alt);
+                        res.predecessores.put(v, u);
+                    }
+                }
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * Reconstitui o caminho gerado por BFS da origem até o destino
+     * para comparação com o caminho mínimo ponderado do Dijkstra.
+     */
+    public List<Vertice> encontrarCaminhoBFS(Vertice origem, Vertice destino) {
+        Map<Vertice, Vertice> pai = new HashMap<>();
+        Map<Vertice, Boolean> visitado = new HashMap<>();
+        for (Vertice v : this.vertices) {
+            visitado.put(v, false);
+            pai.put(v, null);
+        }
+
+        Queue<Vertice> fila = new LinkedList<>();
+        visitado.put(origem, true);
+        fila.add(origem);
+
+        while (!fila.isEmpty()) {
+            Vertice u = fila.poll();
+            if (u.equals(destino)) break;
+
+            int uIdx = this.vertices.indexOf(u);
+            for (Vertice v : this.lista.get(uIdx)) {
+                if (!visitado.get(v)) {
+                    visitado.put(v, true);
+                    pai.put(v, u);
+                    fila.add(v);
+                }
+            }
+        }
+
+        List<Vertice> caminho = new ArrayList<>();
+        Vertice atual = destino;
+        while (atual != null) {
+            caminho.add(0, atual);
+            atual = pai.get(atual);
+        }
+
+        if (caminho.isEmpty() || !caminho.get(0).equals(origem)) {
+            return Collections.emptyList();
+        }
+        return caminho;
+    }
+
+    /**
+     * Calcula o custo ponderado total de um dado caminho.
+     */
+    public int calcularCustoCaminho(List<Vertice> caminho) {
+        if (caminho == null || caminho.size() < 2) return 0;
+        int custo = 0;
+        for (int i = 0; i < caminho.size() - 1; i++) {
+            int uIdx = this.vertices.indexOf(caminho.get(i));
+            int vIdx = this.vertices.indexOf(caminho.get(i + 1));
+            custo += this.matriz[uIdx][vIdx];
+        }
+        return custo;
+    }
+
+    // =========================================================================
+    // FÁBRICAS DOS TRÊS GRAFOS DO ESTUDO DIRIGIDO
+    // =========================================================================
+
+    /**
+     * ETAPA 1 (Figura 1): Grafo direcionado simples
+     * Vértices: A, B, C, D, E
+     * Arcos: A->B, A->C, B->D, C->D, D->E
+     */
+    public static Grafo criarGrafoEtapa1() {
+        Grafo g = new Grafo(true, false);
+        g.adicionarArestaDirigida("A", "B");
+        g.adicionarArestaDirigida("A", "C");
+        g.adicionarArestaDirigida("B", "D");
+        g.adicionarArestaDirigida("C", "D");
+        g.adicionarArestaDirigida("D", "E");
+        return g;
+    }
+
+    /**
+     * ETAPA 2 (Figura 2): Grafo ponderado não direcionado
+     * Vértices: A, B, C, D, E
+     * Arestas: A-B(4), A-C(2), B-C(1), B-D(5), C-D(8), C-E(10), D-E(2)
+     */
+    public static Grafo criarGrafoEtapa2() {
+        Grafo g = new Grafo(false, true);
+        g.adicionarArestaPonderada("A", "B", 4);
+        g.adicionarArestaPonderada("A", "C", 2);
+        g.adicionarArestaPonderada("B", "C", 1);
+        g.adicionarArestaPonderada("B", "D", 5);
+        g.adicionarArestaPonderada("C", "D", 8);
+        g.adicionarArestaPonderada("C", "E", 10);
+        g.adicionarArestaPonderada("D", "E", 2);
+        return g;
+    }
+
+    /**
+     * ETAPA 3 (Figura 3): Grafo direcionado e ponderado
+     * Vértices: A, B, C, D, E
+     * Arcos: A->B(4), A->C(2), C->B(1), B->D(5), C->D(8), C->E(10), D->E(2)
+     */
+    public static Grafo criarGrafoEtapa3() {
+        Grafo g = new Grafo(true, true);
+        g.adicionarArcoPonderado("A", "B", 4);
+        g.adicionarArcoPonderado("A", "C", 2);
+        g.adicionarArcoPonderado("C", "B", 1);
+        g.adicionarArcoPonderado("B", "D", 5);
+        g.adicionarArcoPonderado("C", "D", 8);
+        g.adicionarArcoPonderado("C", "E", 10);
+        g.adicionarArcoPonderado("D", "E", 2);
+        return g;
+    }
+
+    // =========================================================================
+    // MÉTODOS EXISTENTES DA LISTA E AULA 9 (PRESERVADOS COM COMENTÁRIOS ORIGINAIS)
+    // =========================================================================
 
     /**
      * Estrutura auxiliar: FILA (Queue) com política FIFO (First In, First Out).
@@ -212,17 +782,13 @@ public class Grafo {
      */
     public void bfs(int inicio, List<Integer> ordemVisitacao) {
         System.out.println("\n--- Busca em Largura (BFS) ---");
-        // Vetor de visitados: inicializa todos como falso
         boolean[] visitado = new boolean[this.n];
-        // Fila FIFO que gerencia a exploração por níveis
         Queue<Integer> fila = new LinkedList<>();
 
-        // Marca o vértice inicial e enfileira
         visitado[inicio] = true;
         fila.add(inicio);
 
         while (!fila.isEmpty()) {
-            // Retira o primeiro vértice da fila (FIFO)
             int u = fila.poll();
             ordemVisitacao.add(u);
 
@@ -231,13 +797,11 @@ public class Grafo {
             List<Vertice> vizinhosEncontrados = this.lista.get(u);
             List<Vertice> novosAdicionados = new ArrayList<>();
 
-            // Analisa todos os vizinhos do vértice u
             for (Vertice vizinho : vizinhosEncontrados) {
                 int v = this.vertices.indexOf(vizinho);
-                // Só processa vizinhos ainda não visitados
                 if (!visitado[v]) {
-                    visitado[v] = true;      // Marca antes de enfileirar para evitar duplicatas
-                    fila.add(v);              // Enfileira para processamento futuro
+                    visitado[v] = true;
+                    fila.add(v);
                     novosAdicionados.add(vizinho);
                 }
             }
@@ -275,16 +839,13 @@ public class Grafo {
         ordem.add(u);
         System.out.println("Entrando no vértice... " + this.vertices.get(u));
 
-        // Percorre todos os vizinhos de u em ordem crescente
         for (Vertice vizinho : this.lista.get(u)) {
             int v = this.vertices.indexOf(vizinho);
             if (!visitado[v]) {
-                // Chamada recursiva: aprofunda a busca no vizinho não visitado
                 dfs(v, visitado, ordem);
             }
         }
 
-        // Ao esgotar os vizinhos não visitados, retorna para a chamada anterior (backtracking)
         System.out.println("Retornando do vértice... " + this.vertices.get(u));
     }
 
@@ -310,14 +871,11 @@ public class Grafo {
         boolean[] visitado = new boolean[this.n];
         Stack<Integer> pilha = new Stack<>();
 
-        // Empilha o vértice inicial
         pilha.push(inicio);
 
         while (!pilha.isEmpty()) {
-            // Retira o elemento do topo da pilha (LIFO)
             int u = pilha.pop();
 
-            // Um vértice pode ter sido empilhado por caminhos alternativos; verifica se já foi visitado
             if (!visitado[u]) {
                 visitado[u] = true;
                 ordemVisitacao.add(u);
@@ -325,7 +883,6 @@ public class Grafo {
                 System.out.println("\nVértice retirado do topo: " + this.vertices.get(u));
 
                 List<Vertice> vizinhos = this.lista.get(u);
-                // Inverte a lista de vizinhos para empilhar em ordem decrescente
                 List<Vertice> vizinhosReversos = new ArrayList<>(vizinhos);
                 Collections.reverse(vizinhosReversos);
                 
@@ -373,11 +930,9 @@ public class Grafo {
      * para garantir que todos os |V| vértices são alcançáveis a partir de um vértice inicial.
      */
     public boolean ehArvore() {
-        // Árvores clássicas não direcionadas são definidas sobre grafos não direcionados
         if (this.direcionado) return false;
         if (this.n == 0) return false;
 
-        // Se |E| != |V| - 1 então retornar FALSO
         int m = getQuantidadeArestas();
         if (m != this.n - 1) {
             return false;
@@ -426,32 +981,26 @@ public class Grafo {
      * ainda NÃO VISITADO é descoberto pela primeira vez a partir de 'u'.
      */
     public List<Aresta> arvoreGeradoraBFS(int inicio) {
-        // 1. Para cada v em V: visitado[v] <- FALSO
         boolean[] visitado = new boolean[this.n];
-        // 2. Criar fila Q; T <- vazio
         Queue<Integer> fila = new LinkedList<>();
         List<Aresta> t = new ArrayList<>();
 
-        // 3. visitado[s] <- VERDADEIRO; enfileirar(Q, s)
         visitado[inicio] = true;
         fila.add(inicio);
 
-        // 4. Enquanto Q não estiver vazia:
         while (!fila.isEmpty()) {
-            int u = fila.poll(); // u <- desenfileirar(Q)
-            for (Vertice vizinho : this.lista.get(u)) { // Para cada vizinho em Adj[u]
+            int u = fila.poll();
+            for (Vertice vizinho : this.lista.get(u)) {
                 int v = this.vertices.indexOf(vizinho);
-                if (!visitado[v]) { // Se NÃO visitado[v]
+                if (!visitado[v]) {
                     visitado[v] = true;
-                    // Aresta da árvore geradora registrada na descoberta do novo vértice
                     int peso = this.matriz[u][v];
                     t.add(new Aresta(this.vertices.get(u), vizinho, peso));
-                    fila.add(v); // enfileirar(Q, v)
+                    fila.add(v);
                 }
             }
         }
 
-        // 5. Retornar T
         return t;
     }
 
@@ -501,41 +1050,35 @@ public class Grafo {
      * Os vizinhos são empilhados em ordem inversa para preservar a ordem desejada ao desempilhar.
      */
     public List<Aresta> arvoreGeradoraDFS(int inicio) {
-        // 1. Para cada v em V: visitado[v] <- FALSO
         boolean[] visitado = new boolean[this.n];
-        // 2. Criar pilha P; T <- vazio
         Stack<int[]> pilha = new Stack<>();
         List<Aresta> t = new ArrayList<>();
 
-        // 3. empilhar(P, (s, NULO)) onde NULO = -1
         pilha.push(new int[]{inicio, -1});
 
-        // 4. Enquanto P não estiver vazia:
         while (!pilha.isEmpty()) {
-            int[] par = pilha.pop(); // (u, pai) <- desempilhar(P)
+            int[] par = pilha.pop();
             int u = par[0];
             int pai = par[1];
 
-            if (!visitado[u]) { // Se NÃO visitado[u]
+            if (!visitado[u]) {
                 visitado[u] = true;
-                if (pai != -1) { // se pai != NULO
+                if (pai != -1) {
                     int peso = this.matriz[pai][u];
-                    t.add(new Aresta(this.vertices.get(pai), this.vertices.get(u), peso)); // T <- T ∪ {(pai, u)}
+                    t.add(new Aresta(this.vertices.get(pai), this.vertices.get(u), peso));
                 }
 
-                // Para cada v em Adj[u] em ordem inversa
                 List<Vertice> vizinhos = this.lista.get(u);
                 for (int i = vizinhos.size() - 1; i >= 0; i--) {
                     Vertice vizinho = vizinhos.get(i);
                     int v = this.vertices.indexOf(vizinho);
                     if (!visitado[v]) {
-                        pilha.push(new int[]{v, u}); // empilhar(P, (v, u))
+                        pilha.push(new int[]{v, u});
                     }
                 }
             }
         }
 
-        // 5. Retornar T
         return t;
     }
 
@@ -696,38 +1239,32 @@ public class Grafo {
      * Se algum vértice for inalcançável a partir de 'r', a construção FALHA.
      */
     public List<Aresta> arborescenciaBFS(int raiz) {
-        // 1. Marcar todos como NÃO visitados; A <- vazio
         boolean[] visitado = new boolean[this.n];
         Queue<Integer> fila = new LinkedList<>();
         List<Aresta> a = new ArrayList<>();
 
-        // 2. visitado[r] <- VERDADEIRO; enfileirar(Q, r)
         visitado[raiz] = true;
         fila.add(raiz);
 
-        // 3. Enquanto Q não estiver vazia:
         while (!fila.isEmpty()) {
             int u = fila.poll();
-            // Examina somente os arcos que saem de u (u -> v)
             for (Vertice vizinho : this.lista.get(u)) {
                 int v = this.vertices.indexOf(vizinho);
                 if (!visitado[v]) {
                     visitado[v] = true;
                     int peso = this.matriz[u][v];
-                    a.add(new Aresta(this.vertices.get(u), vizinho, peso)); // Registra arco da arborescência
+                    a.add(new Aresta(this.vertices.get(u), vizinho, peso));
                     fila.add(v);
                 }
             }
         }
 
-        // 4. Se existe vértice não visitado: FALHA (retorna null)
         for (int i = 0; i < this.n; i++) {
             if (!visitado[i]) {
                 return null;
             }
         }
 
-        // 5. Retornar A
         return a;
     }
 
@@ -752,6 +1289,4 @@ public class Grafo {
             System.out.println("Verificação (|A| == |V| - 1): " + (a.size() == this.n - 1));
         }
     }
-}
-
 }
