@@ -7,27 +7,80 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
 
 /**
  * Classe que representa um Grafo utilizando simultaneamente:
- * 1) Matriz de Adjacência (n x n)
- * 2) Lista de Adjacência com objetos do tipo Vertice e Aresta
+ * 1) Matriz de Adjacência (n x n) com sentinela INFINITO para grafos ponderados
+ * 2) Lista de Adjacência com pares (vizinho, peso) via EntradaAdjacencia
  *
  * Implementa todos os algoritmos exigidos:
  * - Lista de Exercícios: Matriz, Lista, BFS com rastreamento, DFS Recursiva, DFS com Pilha.
  * - Estudo Dirigido (Aula 9): EhArvore, ArvoreGeradoraBFS, ArvoreGeradoraDFS, Comparação BFS x DFS, ArborescenciaBFS.
  * - Estudo Dirigido (DIM0549 - UFRN): Construção e Percurso em Grafos (Etapas 1, 2, 3, 6, 7, 8, 9 com Dijkstra e DFS Iterativa).
+ * - Aula 12 (DIM0549): MatrizPonderada (INFINITO), ListaPonderada (vizinho, peso), CustoCaminho com validação, Relaxar e InserirArcoPonderado.
  */
 public class Grafo {
-    private int n;                          // Quantidade de vértices |V|
-    private boolean direcionado;            // Indica se o grafo é direcionado (dígrafos) ou não
-    private boolean ponderado;              // Indica se o grafo é ponderado ou não
-    private int[][] matriz;                 // Matriz de adjacência
-    private List<Vertice> vertices;         // Lista de vértices que compõem o grafo V
-    private List<List<Vertice>> lista;      // Lista de adjacência (vizinhos de cada vértice)
+    public static final int INFINITO = Integer.MAX_VALUE;
+    public static final int CAMINHO_INVALIDO = Integer.MIN_VALUE;
+
+    /**
+     * Representa um par (vizinho, peso) na Lista de Adjacência (Slides 9 e 10).
+     */
+    public static class EntradaAdjacencia implements Comparable<EntradaAdjacencia> {
+        private final Vertice vizinho;
+        private int peso;
+
+        public EntradaAdjacencia(Vertice vizinho, int peso) {
+            this.vizinho = vizinho;
+            this.peso = peso;
+        }
+
+        public Vertice getVizinho() {
+            return this.vizinho;
+        }
+
+        public int getPeso() {
+            return this.peso;
+        }
+
+        public void setPeso(int peso) {
+            this.peso = peso;
+        }
+
+        @Override
+        public int compareTo(EntradaAdjacencia outro) {
+            return this.vizinho.compareTo(outro.vizinho);
+        }
+
+        @Override
+        public String toString() {
+            return "(" + this.vizinho + ", " + this.peso + ")";
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            EntradaAdjacencia that = (EntradaAdjacencia) o;
+            return Objects.equals(this.vizinho, that.vizinho);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.vizinho);
+        }
+    }
+
+    private int n;                                  // Quantidade de vértices |V|
+    private boolean direcionado;                    // Indica se o grafo é direcionado (dígrafos) ou não
+    private boolean ponderado;                      // Indica se o grafo é ponderado ou não
+    private int[][] matriz;                         // Matriz de adjacência
+    private List<Vertice> vertices;                 // Lista de vértices que compõem o grafo V
+    private List<List<EntradaAdjacencia>> lista;    // Lista de adjacência com pares (vizinho, peso)
 
     /**
      * Construtor para grafo não direcionado padrão.
@@ -50,8 +103,8 @@ public class Grafo {
         this.n = numVertices;
         this.direcionado = direcionado;
         this.ponderado = ponderado;
-        
-        this.matriz = new int[n][n];
+
+        inicializarMatriz(n);
         this.vertices = new ArrayList<>();
         this.lista = new ArrayList<>();
         for (int i = 0; i < n; i++) {
@@ -67,8 +120,8 @@ public class Grafo {
         this.n = rotulos.size();
         this.direcionado = direcionado;
         this.ponderado = ponderado;
-        
-        this.matriz = new int[n][n];
+
+        inicializarMatriz(n);
         this.vertices = new ArrayList<>();
         this.lista = new ArrayList<>();
         for (String rotulo : rotulos) {
@@ -89,6 +142,21 @@ public class Grafo {
         this.matriz = new int[0][0];
         this.vertices = new ArrayList<>();
         this.lista = new ArrayList<>();
+    }
+
+    /**
+     * Inicializa a matriz de adjacência: em grafos ponderados, usa INFINITO para ausência de aresta
+     * e 0 na diagonal principal (Algoritmo 1 — MatrizPonderada, Slide 8).
+     */
+    private void inicializarMatriz(int tamanho) {
+        this.matriz = new int[tamanho][tamanho];
+        if (this.ponderado) {
+            for (int i = 0; i < tamanho; i++) {
+                for (int j = 0; j < tamanho; j++) {
+                    this.matriz[i][j] = (i == j) ? 0 : INFINITO;
+                }
+            }
+        }
     }
 
     public int getNumVertices() {
@@ -163,14 +231,57 @@ public class Grafo {
 
     private void redimensionarMatriz(int novoTamanho) {
         int[][] novaMatriz = new int[novoTamanho][novoTamanho];
-        if (this.matriz != null) {
-            for (int i = 0; i < this.matriz.length && i < novoTamanho; i++) {
-                for (int j = 0; j < this.matriz[i].length && j < novoTamanho; j++) {
+        int tamanhoAnterior = (this.matriz != null) ? this.matriz.length : 0;
+        for (int i = 0; i < novoTamanho; i++) {
+            for (int j = 0; j < novoTamanho; j++) {
+                if (i < tamanhoAnterior && j < this.matriz[i].length) {
                     novaMatriz[i][j] = this.matriz[i][j];
+                } else if (this.ponderado) {
+                    novaMatriz[i][j] = (i == j) ? 0 : INFINITO;
+                } else {
+                    novaMatriz[i][j] = 0;
                 }
             }
         }
         this.matriz = novaMatriz;
+    }
+
+    /**
+     * Registra ou atualiza o par (vizinho, peso) mantendo a lista ordenada.
+     */
+    private void registrarNaLista(int uIdx, Vertice destino, int peso) {
+        List<EntradaAdjacencia> adj = this.lista.get(uIdx);
+        for (EntradaAdjacencia entrada : adj) {
+            if (entrada.getVizinho().equals(destino)) {
+                entrada.setPeso(peso);
+                return;
+            }
+        }
+        adj.add(new EntradaAdjacencia(destino, peso));
+        Collections.sort(adj);
+    }
+
+    /**
+     * Retorna apenas os vértices vizinhos de uIdx (preservando a ordem da lista).
+     */
+    private List<Vertice> getVizinhos(int uIdx) {
+        List<Vertice> vizinhos = new ArrayList<>();
+        for (EntradaAdjacencia entrada : this.lista.get(uIdx)) {
+            vizinhos.add(entrada.getVizinho());
+        }
+        return vizinhos;
+    }
+
+    /**
+     * Verifica se há aresta/arco registrado entre uIdx e v na lista de adjacência.
+     */
+    private boolean contemVizinho(int uIdx, Vertice v) {
+        for (EntradaAdjacencia entrada : this.lista.get(uIdx)) {
+            if (entrada.getVizinho().equals(v)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -205,11 +316,7 @@ public class Grafo {
         int vIdx = this.vertices.indexOf(dest);
 
         this.matriz[uIdx][vIdx] = 1;
-
-        if (!this.lista.get(uIdx).contains(dest)) {
-            this.lista.get(uIdx).add(dest);
-            Collections.sort(this.lista.get(uIdx));
-        }
+        registrarNaLista(uIdx, dest, 1);
     }
 
     public void adicionarArestaDirigida(String u, String v) {
@@ -235,15 +342,8 @@ public class Grafo {
         this.matriz[uIdx][vIdx] = peso;
         this.matriz[vIdx][uIdx] = peso;
 
-        if (!this.lista.get(uIdx).contains(dest)) {
-            this.lista.get(uIdx).add(dest);
-            Collections.sort(this.lista.get(uIdx));
-        }
-
-        if (!this.lista.get(vIdx).contains(orig)) {
-            this.lista.get(vIdx).add(orig);
-            Collections.sort(this.lista.get(vIdx));
-        }
+        registrarNaLista(uIdx, dest, peso);
+        registrarNaLista(vIdx, orig, peso);
     }
 
     public void adicionarArestaPonderada(String u, String v, int peso) {
@@ -251,7 +351,7 @@ public class Grafo {
     }
 
     /**
-     * ETAPA 3 - PASSO 1: Inserção de arco dirigido e ponderado (Seção 5)
+     * ETAPA 3 - PASSO 1: Inserção de arco dirigido e ponderado (Seção 5 e Slide 18)
      * procedimento Adicionar_Arco_Ponderado(G, u, v, peso):
      *   Adicionar_Vertice(G, u)
      *   Adicionar_Vertice(G, v)
@@ -266,11 +366,7 @@ public class Grafo {
         int vIdx = this.vertices.indexOf(dest);
 
         this.matriz[uIdx][vIdx] = peso;
-
-        if (!this.lista.get(uIdx).contains(dest)) {
-            this.lista.get(uIdx).add(dest);
-            Collections.sort(this.lista.get(uIdx));
-        }
+        registrarNaLista(uIdx, dest, peso);
     }
 
     public void adicionarArcoPonderado(String u, String v, int peso) {
@@ -293,30 +389,23 @@ public class Grafo {
     }
 
     public void adicionarAresta(int u, int v, int peso) {
-        if (!this.ponderado && peso > 1) {
+        if (!this.ponderado && peso != 1) {
             System.out.println("O grafo não é ponderado, o peso não deve ser especificado ou deve ser 1!");
             return;
         }
 
-        // Registra na Matriz de Adjacência
-        this.matriz[u][v] = this.ponderado ? peso : 1;
+        int valor = this.ponderado ? peso : 1;
+        this.matriz[u][v] = valor;
 
         Vertice verticeU = this.vertices.get(u);
         Vertice verticeV = this.vertices.get(v);
 
-        // Registra na Lista de Adjacência de u
-        if (!this.lista.get(u).contains(verticeV)) {
-            this.lista.get(u).add(verticeV);
-            Collections.sort(this.lista.get(u));
-        }
+        registrarNaLista(u, verticeV, valor);
 
         // Se o grafo for não direcionado, a aresta é simétrica
         if (!this.direcionado) {
-            this.matriz[v][u] = this.ponderado ? peso : 1;
-            if (!this.lista.get(v).contains(verticeU)) {
-                this.lista.get(v).add(verticeU);
-                Collections.sort(this.lista.get(v));
-            }
+            this.matriz[v][u] = valor;
+            registrarNaLista(v, verticeU, valor);
         }
     }
 
@@ -324,7 +413,9 @@ public class Grafo {
         if (this.direcionado) {
             adicionarArestaDirigida(u, v);
         } else {
-            adicionarAresta(this.vertices.indexOf(u), this.vertices.indexOf(v));
+            Vertice orig = adicionarVertice(u);
+            Vertice dest = adicionarVertice(v);
+            adicionarAresta(this.vertices.indexOf(orig), this.vertices.indexOf(dest));
         }
     }
 
@@ -349,24 +440,17 @@ public class Grafo {
 
         for (Vertice u : ordenados) {
             int uIdx = this.vertices.indexOf(u);
-            List<Vertice> vizinhos = this.lista.get(uIdx);
-
             if (!this.ponderado) {
-                System.out.println(u + " → " + vizinhos);
+                System.out.println(u + " → " + getVizinhos(uIdx));
             } else {
-                List<String> entradasPonderadas = new ArrayList<>();
-                for (Vertice v : vizinhos) {
-                    int vIdx = this.vertices.indexOf(v);
-                    int peso = this.matriz[uIdx][vIdx];
-                    entradasPonderadas.add("(" + v + ", " + peso + ")");
-                }
-                System.out.println(u + " → " + entradasPonderadas);
+                System.out.println(u + " → " + this.lista.get(uIdx));
             }
         }
     }
 
     /**
      * Percorre linha por linha exibindo os valores da matriz de adjacência.
+     * Em grafos ponderados, ausência de aresta (INFINITO) é exibida como "—".
      */
     public void mostrarMatriz() {
         System.out.println("\n--- Matriz de Adjacência (" + this.n + "x" + this.n + ") ---");
@@ -378,7 +462,10 @@ public class Grafo {
         for (int i = 0; i < this.n; i++) {
             System.out.printf("%-4s [", this.vertices.get(i));
             for (int j = 0; j < this.n; j++) {
-                System.out.printf("%4d%s", this.matriz[i][j], (j < this.n - 1 ? ", " : ""));
+                String valor = (this.ponderado && this.matriz[i][j] == INFINITO)
+                        ? "—"
+                        : String.valueOf(this.matriz[i][j]);
+                System.out.printf("%4s%s", valor, (j < this.n - 1 ? ", " : ""));
             }
             System.out.println("]");
         }
@@ -443,7 +530,7 @@ public class Grafo {
             System.out.println("Processando: " + u + " | Fila: " + fila);
 
             int uIdx = this.vertices.indexOf(u);
-            List<Vertice> vizinhos = this.lista.get(uIdx);
+            List<Vertice> vizinhos = getVizinhos(uIdx);
 
             for (Vertice v : vizinhos) {
                 if (!visitado.get(v)) {
@@ -498,7 +585,7 @@ public class Grafo {
         System.out.println("Entrando no vértice: " + u);
 
         int uIdx = this.vertices.indexOf(u);
-        List<Vertice> vizinhos = this.lista.get(uIdx);
+        List<Vertice> vizinhos = getVizinhos(uIdx);
 
         for (Vertice v : vizinhos) {
             if (!visitado.get(v)) {
@@ -547,7 +634,7 @@ public class Grafo {
                 System.out.println("\nVértice retirado do topo (visitado): " + u);
 
                 int uIdx = this.vertices.indexOf(u);
-                List<Vertice> vizinhos = this.lista.get(uIdx);
+                List<Vertice> vizinhos = getVizinhos(uIdx);
 
                 // Empilha em ordem inversa para que o menor vizinho alfabético fique no topo
                 List<Vertice> empilhados = new ArrayList<>();
@@ -599,7 +686,23 @@ public class Grafo {
     }
 
     /**
-     * Aplica o algoritmo de Dijkstra a partir do vértice de origem (Seção 9).
+     * Algoritmo 4 — Relaxar(u, v, peso) (Slide 16).
+     * Atualiza a distância estimada e o predecessor de v se o caminho via u reduzir o custo atual.
+     */
+    public boolean relaxar(Vertice u, Vertice v, int peso,
+                           Map<Vertice, Integer> dist, Map<Vertice, Vertice> pai) {
+        int distU = dist.getOrDefault(u, INFINITO);
+        int distV = dist.getOrDefault(v, INFINITO);
+        if (distU != INFINITO && distU + peso < distV) {
+            dist.put(v, distU + peso);
+            pai.put(v, u);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Aplica o algoritmo de Dijkstra a partir do vértice de origem (Seção 9 e Slide 15/16).
      * Exige pesos não negativos.
      */
     public ResultadoDijkstra dijkstra(Vertice origem) {
@@ -607,7 +710,7 @@ public class Grafo {
         res.origem = origem;
 
         for (Vertice v : this.vertices) {
-            res.distancias.put(v, Integer.MAX_VALUE);
+            res.distancias.put(v, INFINITO);
             res.predecessores.put(v, null);
         }
         res.distancias.put(origem, 0);
@@ -616,7 +719,7 @@ public class Grafo {
 
         while (!naoVisitados.isEmpty()) {
             Vertice u = null;
-            int menorDist = Integer.MAX_VALUE;
+            int menorDist = INFINITO;
 
             for (Vertice v : naoVisitados) {
                 int d = res.distancias.get(v);
@@ -626,27 +729,21 @@ public class Grafo {
                 }
             }
 
-            if (u == null || menorDist == Integer.MAX_VALUE) {
+            if (u == null || menorDist == INFINITO) {
                 break;
             }
 
             naoVisitados.remove(u);
 
             int uIdx = this.vertices.indexOf(u);
-            List<Vertice> vizinhos = this.lista.get(uIdx);
-
-            for (Vertice v : vizinhos) {
+            for (EntradaAdjacencia entrada : this.lista.get(uIdx)) {
+                Vertice v = entrada.getVizinho();
                 if (naoVisitados.contains(v)) {
-                    int vIdx = this.vertices.indexOf(v);
-                    int peso = this.matriz[uIdx][vIdx];
+                    int peso = entrada.getPeso();
                     if (peso < 0) {
                         throw new IllegalStateException("Dijkstra não suporta arestas com peso negativo!");
                     }
-                    int alt = res.distancias.get(u) + peso;
-                    if (alt < res.distancias.get(v)) {
-                        res.distancias.put(v, alt);
-                        res.predecessores.put(v, u);
-                    }
+                    relaxar(u, v, peso, res.distancias, res.predecessores);
                 }
             }
         }
@@ -675,7 +772,7 @@ public class Grafo {
             if (u.equals(destino)) break;
 
             int uIdx = this.vertices.indexOf(u);
-            for (Vertice v : this.lista.get(uIdx)) {
+            for (Vertice v : getVizinhos(uIdx)) {
                 if (!visitado.get(v)) {
                     visitado.put(v, true);
                     pai.put(v, u);
@@ -698,22 +795,130 @@ public class Grafo {
     }
 
     /**
-     * Calcula o custo ponderado total de um dado caminho.
+     * Algoritmo 3 — CustoCaminho(M, caminho) (Slide 11).
+     * Soma os pesos das arestas consecutivas e retorna CAMINHO_INVALIDO caso alguma aresta não exista.
      */
     public int calcularCustoCaminho(List<Vertice> caminho) {
-        if (caminho == null || caminho.size() < 2) return 0;
-        int custo = 0;
-        for (int i = 0; i < caminho.size() - 1; i++) {
-            int uIdx = this.vertices.indexOf(caminho.get(i));
-            int vIdx = this.vertices.indexOf(caminho.get(i + 1));
-            custo += this.matriz[uIdx][vIdx];
+        return calcularCustoCaminho(caminho, false);
+    }
+
+    /**
+     * Calcula o custo total de um caminho, com opção de exibir o rastreamento passo a passo (Slide 12).
+     * Retorna CAMINHO_INVALIDO se o caminho for nulo/vazio, tiver vértice inexistente ou aresta ausente (INFINITO).
+     */
+    public int calcularCustoCaminho(List<Vertice> caminho, boolean exibirPassoAPasso) {
+        if (caminho == null || caminho.isEmpty()) {
+            if (exibirPassoAPasso) {
+                System.out.println("CAMINHO_INVALIDO: caminho vazio.");
+            }
+            return CAMINHO_INVALIDO;
         }
-        return custo;
+
+        for (Vertice v : caminho) {
+            if (v == null || this.vertices.indexOf(v) == -1) {
+                if (exibirPassoAPasso) {
+                    System.out.println("CAMINHO_INVALIDO: vértice inexistente no grafo (" + v + ").");
+                }
+                return CAMINHO_INVALIDO;
+            }
+        }
+
+        if (caminho.size() == 1) {
+            return 0;
+        }
+
+        int total = 0;
+        for (int i = 0; i < caminho.size() - 1; i++) {
+            Vertice u = caminho.get(i);
+            Vertice v = caminho.get(i + 1);
+            int uIdx = this.vertices.indexOf(u);
+            int vIdx = this.vertices.indexOf(v);
+
+            boolean arestaAusente = this.ponderado
+                    ? (this.matriz[uIdx][vIdx] == INFINITO || (uIdx == vIdx && !contemVizinho(uIdx, v)))
+                    : (this.matriz[uIdx][vIdx] == 0);
+
+            if (arestaAusente) {
+                if (exibirPassoAPasso) {
+                    System.out.printf("  Passo %d | Aresta %s → %s NÃO EXISTE (INFINITO) -> CAMINHO_INVALIDO%n",
+                            i + 1, u, v);
+                }
+                return CAMINHO_INVALIDO;
+            }
+
+            int peso = this.matriz[uIdx][vIdx];
+            total += peso;
+            if (exibirPassoAPasso) {
+                System.out.printf("  Passo %d | Aresta Percorrida: %s → %s | Peso: +%d | Custo Acumulado: %d%n",
+                        i + 1, u, v, peso, total);
+            }
+        }
+
+        return total;
+    }
+
+    /**
+     * Sobrecarga por rótulos (ex.: calcularCustoCaminho("A", "B", "E", "F")).
+     */
+    public int calcularCustoCaminho(String... rotulos) {
+        return calcularCustoCaminho(false, rotulos);
+    }
+
+    public int calcularCustoCaminho(boolean exibirPassoAPasso, String... rotulos) {
+        if (rotulos == null || rotulos.length == 0) {
+            return CAMINHO_INVALIDO;
+        }
+        List<Vertice> caminho = new ArrayList<>();
+        for (String rotulo : rotulos) {
+            Vertice v = getVerticePorRotulo(rotulo);
+            if (v == null) {
+                if (exibirPassoAPasso) {
+                    System.out.println("CAMINHO_INVALIDO: vértice '" + rotulo + "' não encontrado.");
+                }
+                return CAMINHO_INVALIDO;
+            }
+            caminho.add(v);
+        }
+        return calcularCustoCaminho(caminho, exibirPassoAPasso);
     }
 
     // =========================================================================
-    // FÁBRICAS DOS TRÊS GRAFOS DO ESTUDO DIRIGIDO
+    // FÁBRICAS DOS GRAFOS (ESTUDO DIRIGIDO E AULA 12)
     // =========================================================================
+
+    /**
+     * AULA 12 (Slides 3 e 6): Grafo não direcionado e ponderado usando letras A..F.
+     * Mapeamento do slide (0..5 -> A..F):
+     * V = {A, B, C, D, E, F}
+     * E = {A-B(4), A-C(2), B-D(5), B-E(1), C-E(7), D-F(3), E-F(2)}
+     */
+    public static Grafo criarGrafoAula12() {
+        Grafo g = new Grafo(Arrays.asList("A", "B", "C", "D", "E", "F"), false, true);
+        g.adicionarArestaPonderada("A", "B", 4);
+        g.adicionarArestaPonderada("A", "C", 2);
+        g.adicionarArestaPonderada("B", "D", 5);
+        g.adicionarArestaPonderada("B", "E", 1);
+        g.adicionarArestaPonderada("C", "E", 7);
+        g.adicionarArestaPonderada("D", "F", 3);
+        g.adicionarArestaPonderada("E", "F", 2);
+        return g;
+    }
+
+    /**
+     * AULA 12 (Slide 18 / Atividade 05): Adaptação dirigida e ponderada usando letras A..F.
+     * Arcos: A->B(4), A->C(2), B->D(5), B->E(1), C->E(7), D->F(3), E->F(2)
+     */
+    public static Grafo criarGrafoAula12Direcionado() {
+        Grafo g = new Grafo(Arrays.asList("A", "B", "C", "D", "E", "F"), true, true);
+        g.adicionarArcoPonderado("A", "B", 4);
+        g.adicionarArcoPonderado("A", "C", 2);
+        g.adicionarArcoPonderado("B", "D", 5);
+        g.adicionarArcoPonderado("B", "E", 1);
+        g.adicionarArcoPonderado("C", "E", 7);
+        g.adicionarArcoPonderado("D", "F", 3);
+        g.adicionarArcoPonderado("E", "F", 2);
+        return g;
+    }
 
     /**
      * ETAPA 1 (Figura 1): Grafo direcionado simples
@@ -794,7 +999,7 @@ public class Grafo {
 
             System.out.println("\nVértice retirado da fila: " + this.vertices.get(u));
 
-            List<Vertice> vizinhosEncontrados = this.lista.get(u);
+            List<Vertice> vizinhosEncontrados = getVizinhos(u);
             List<Vertice> novosAdicionados = new ArrayList<>();
 
             for (Vertice vizinho : vizinhosEncontrados) {
@@ -839,7 +1044,7 @@ public class Grafo {
         ordem.add(u);
         System.out.println("Entrando no vértice... " + this.vertices.get(u));
 
-        for (Vertice vizinho : this.lista.get(u)) {
+        for (Vertice vizinho : getVizinhos(u)) {
             int v = this.vertices.indexOf(vizinho);
             if (!visitado[v]) {
                 dfs(v, visitado, ordem);
@@ -882,7 +1087,7 @@ public class Grafo {
 
                 System.out.println("\nVértice retirado do topo: " + this.vertices.get(u));
 
-                List<Vertice> vizinhos = this.lista.get(u);
+                List<Vertice> vizinhos = getVizinhos(u);
                 List<Vertice> vizinhosReversos = new ArrayList<>(vizinhos);
                 Collections.reverse(vizinhosReversos);
                 
@@ -990,7 +1195,7 @@ public class Grafo {
 
         while (!fila.isEmpty()) {
             int u = fila.poll();
-            for (Vertice vizinho : this.lista.get(u)) {
+            for (Vertice vizinho : getVizinhos(u)) {
                 int v = this.vertices.indexOf(vizinho);
                 if (!visitado[v]) {
                     visitado[v] = true;
@@ -1068,7 +1273,7 @@ public class Grafo {
                     t.add(new Aresta(this.vertices.get(pai), this.vertices.get(u), peso));
                 }
 
-                List<Vertice> vizinhos = this.lista.get(u);
+                List<Vertice> vizinhos = getVizinhos(u);
                 for (int i = vizinhos.size() - 1; i >= 0; i--) {
                     Vertice vizinho = vizinhos.get(i);
                     int v = this.vertices.indexOf(vizinho);
@@ -1248,7 +1453,7 @@ public class Grafo {
 
         while (!fila.isEmpty()) {
             int u = fila.poll();
-            for (Vertice vizinho : this.lista.get(u)) {
+            for (Vertice vizinho : getVizinhos(u)) {
                 int v = this.vertices.indexOf(vizinho);
                 if (!visitado[v]) {
                     visitado[v] = true;

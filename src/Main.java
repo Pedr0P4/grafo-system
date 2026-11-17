@@ -1,4 +1,6 @@
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 /**
@@ -249,6 +251,131 @@ public class Main {
         System.out.println("================================================================");
     }
 
+    /**
+     * Lê um vértice pelo rótulo (ex.: "A") ou pelo índice numérico (ex.: "0").
+     */
+    private static int lerIndiceVertice(Scanner scanner, Grafo grafo, String mensagem) {
+        System.out.print(mensagem + " (" + grafo.getVertices() + "): ");
+        String entrada = scanner.nextLine().trim();
+        int idx = grafo.getIndiceVertice(entrada);
+        if (idx != -1) {
+            return idx;
+        }
+        try {
+            int num = Integer.parseInt(entrada);
+            if (num >= 0 && num < grafo.getNumVertices()) {
+                return num;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        System.out.println("Vértice inválido: " + entrada);
+        return -1;
+    }
+
+    /**
+     * Executa toda a Atividade Prática de Consolidação da Aula 12 (Slides 6 a 19)
+     * utilizando letras A..F no lugar de 0..5.
+     */
+    public static void executarAtividadeAula12() {
+        System.out.println("================================================================");
+        System.out.println("     AULA 12 — GRAFOS PONDERADOS (VÉRTICES A, B, C, D, E, F)   ");
+        System.out.println("================================================================");
+        System.out.println("Mapeamento: 0→A, 1→B, 2→C, 3→D, 4→E, 5→F");
+        System.out.println("Arestas: A—B(4), A—C(2), B—D(5), B—E(1), C—E(7), D—F(3), E—F(2)");
+
+        Grafo gAula12 = Grafo.criarGrafoAula12();
+
+        System.out.println("\n[ATIVIDADE 01 e 02] Matriz Ponderada (— = INFINITO) e Lista Ponderada (vizinho, peso):");
+        gAula12.mostrarMatriz();
+        gAula12.mostrarLista();
+
+        System.out.println("\n[ATIVIDADE 03] Execução de CustoCaminho (Slide 11 e Slide 12):");
+        System.out.println("1) Trajeto válido: A → B → E → F");
+        int custoExemplo = gAula12.calcularCustoCaminho(true, "A", "B", "E", "F");
+        System.out.println("   Resultado CustoCaminho(A → B → E → F): " + custoExemplo);
+
+        System.out.println("\n2) Validação de trajeto inválido: A → C → D (aresta C—D não existe)");
+        int custoInvalido = gAula12.calcularCustoCaminho(true, "A", "C", "D");
+        System.out.println("   Resultado: " + (custoInvalido == Grafo.CAMINHO_INVALIDO ? "CAMINHO_INVALIDO" : custoInvalido));
+
+        System.out.println("\n[ATIVIDADE 04] Comparação dos três percursos de A até F (Slide 13):");
+        String[][] caminhos = {
+            {"A", "C", "E", "F"},
+            {"A", "B", "E", "F"},
+            {"A", "B", "D", "F"}
+        };
+        System.out.println("+-------------------------+---------------+-----------------+");
+        System.out.println("| Caminho de A até F      | Nº de arestas | Soma dos pesos  |");
+        System.out.println("+-------------------------+---------------+-----------------+");
+        for (String[] caminho : caminhos) {
+            int custo = gAula12.calcularCustoCaminho(caminho);
+            String rota = String.join(" → ", caminho);
+            System.out.printf("| %-23s | %-13d | %-15d |%n", rota, caminho.length - 1, custo);
+        }
+        System.out.println("+-------------------------+---------------+-----------------+");
+        System.out.println("Conclusão: Os três caminhos possuem 3 arestas, mas custos diferentes (menos arestas ≠ menor peso).");
+
+        System.out.println("\n[SLIDES 14–16] Preparação para Dijkstra (usando Relaxar) a partir de A:");
+        Grafo.ResultadoDijkstra res = gAula12.dijkstra("A");
+        Vertice destinoF = gAula12.getVerticePorRotulo("F");
+        System.out.println("Menores custos a partir de A:");
+        for (Map.Entry<Vertice, Integer> entry : res.distancias.entrySet()) {
+            System.out.println("  dist[" + entry.getKey() + "] = " + entry.getValue());
+        }
+        System.out.println("Menor caminho de A até F por Dijkstra: " + res.reconstruirCaminho(destinoF)
+                + " (custo total = " + res.distancias.get(destinoF) + ")");
+
+        System.out.println("\n[ATIVIDADE 05 / SLIDE 18] Adaptação para Grafo Dirigido e Ponderado (A..F):");
+        Grafo gDir = Grafo.criarGrafoAula12Direcionado();
+        gDir.mostrarMatriz();
+        gDir.mostrarLista();
+        System.out.println("Observação: No grafo dirigido, cada arco (u → v, p) aparece apenas na lista de u (ex.: F → []).");
+        System.out.println("================================================================");
+    }
+
+    /**
+     * Calcula interativamente o custo de um caminho digitado pelo usuário (ex.: A B E F).
+     */
+    private static void executarCalculoCustoInterativo(Scanner scanner, Grafo grafo) {
+        System.out.println("\n--- CustoCaminho Interativo ---");
+        System.out.println("Vértices disponíveis: " + grafo.getVertices());
+        System.out.print("Digite os vértices do caminho separados por espaço (ex: A B E F): ");
+        String linha = scanner.nextLine().trim();
+        if (linha.isEmpty()) {
+            System.out.println("Nenhum caminho informado.");
+            return;
+        }
+        String[] rotulos = linha.split("\\s+");
+        int custo = grafo.calcularCustoCaminho(true, rotulos);
+        if (custo == Grafo.CAMINHO_INVALIDO) {
+            System.out.println("Resultado: CAMINHO_INVALIDO");
+        } else {
+            System.out.println("Custo Total do Caminho: " + custo);
+        }
+    }
+
+    /**
+     * Executa o algoritmo de Dijkstra a partir de um vértice escolhido no grafo atual.
+     */
+    private static void executarDijkstraNoGrafoAtual(Scanner scanner, Grafo grafo) {
+        if (!grafo.isPonderado()) {
+            System.out.println("\nAviso: O grafo atual não é ponderado (todas as arestas têm peso 1).");
+            System.out.println("Use a opção 17 ou 18 para carregar o grafo ponderado da Aula 12 (A..F).");
+        }
+        int idx = lerIndiceVertice(scanner, grafo, "Vértice de origem para Dijkstra");
+        if (idx == -1) return;
+
+        Vertice origem = grafo.getVertice(idx);
+        Grafo.ResultadoDijkstra res = grafo.dijkstra(origem);
+
+        System.out.println("\n--- Resultado Dijkstra a partir de " + origem + " ---");
+        for (Vertice v : grafo.getVertices()) {
+            int d = res.distancias.get(v);
+            String distStr = (d == Grafo.INFINITO) ? "INFINITO" : String.valueOf(d);
+            System.out.println("  " + origem + " → " + v + " | dist = " + distStr + " | caminho = " + res.reconstruirCaminho(v));
+        }
+    }
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         Grafo grafo = criarGrafoPadrao();
@@ -259,8 +386,10 @@ public class Main {
             System.out.println("================================================================");
             System.out.println("                     SISTEMA DE GRAFOS                          ");
             System.out.println("================================================================");
-            System.out.println("Grafo em memória: " + (grafo.isDirecionado() ? "Direcionado" : "Não Direcionado") 
-                    + " (" + grafo.getNumVertices() + " vértices, " + grafo.getQuantidadeArestas() + " arestas/arcos)");
+            System.out.println("Grafo em memória: " + (grafo.isDirecionado() ? "Direcionado" : "Não Direcionado")
+                    + " | " + (grafo.isPonderado() ? "Ponderado" : "Não Ponderado")
+                    + " (" + grafo.getNumVertices() + " vértices " + grafo.getVertices()
+                    + ", " + grafo.getQuantidadeArestas() + " arestas/arcos)");
             System.out.println("----------------------------------------------------------------");
             System.out.println("[ PARTE 1 — LISTA DE EXERCÍCIOS ]");
             System.out.println(" 1 - Matriz de Adjacência (Questão 1)");
@@ -280,12 +409,20 @@ public class Main {
             System.out.println("13 - Algoritmo 4: Arborescência por BFS (Dígrafo)");
             System.out.println("14 - Executar Demonstração Completa da Aula 9");
             System.out.println("----------------------------------------------------------------");
+            System.out.println("[ PARTE 3 — AULA 12: GRAFOS PONDERADOS (VÉRTICES A..F) ]");
+            System.out.println("16 - Executar Atividade Completa da Aula 12 (Slides 6 a 19)");
+            System.out.println("17 - Carregar Grafo Ponderado da Aula 12 (A..F) na Memória");
+            System.out.println("18 - Carregar Grafo Dirigido Ponderado da Aula 12 (A..F) na Memória");
+            System.out.println("19 - Calcular Custo de um Caminho (CustoCaminho passo a passo)");
+            System.out.println("20 - Executar Dijkstra no Grafo Atual");
+            System.out.println("----------------------------------------------------------------");
             System.out.println("[ CONFIGURAÇÃO ]");
             System.out.println("15 - Redefinir para o Grafo Padrão da Lista");
             System.out.println(" 0 - Sair");
             System.out.println("================================================================");
 
             System.out.print("Escolha uma opção: ");
+            if (!scanner.hasNextLine()) break;
             String opcao = scanner.nextLine().trim();
 
             if (opcao.equals("0")) {
@@ -296,29 +433,14 @@ public class Main {
             } else if (opcao.equals("2")) {
                 grafo.mostrarLista();
             } else if (opcao.equals("3")) {
-                System.out.print("Vértice de início (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int inicio = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.bfs(inicio);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int inicio = lerIndiceVertice(scanner, grafo, "Vértice de início");
+                if (inicio != -1) grafo.bfs(inicio);
             } else if (opcao.equals("4")) {
-                System.out.print("Vértice de início (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int inicio = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.dfsRecursiva(inicio);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int inicio = lerIndiceVertice(scanner, grafo, "Vértice de início");
+                if (inicio != -1) grafo.dfsRecursiva(inicio);
             } else if (opcao.equals("5")) {
-                System.out.print("Vértice de início (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int inicio = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.dfsPilha(inicio);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int inicio = lerIndiceVertice(scanner, grafo, "Vértice de início");
+                if (inicio != -1) grafo.dfsPilha(inicio);
             } else if (opcao.equals("6")) {
                 grafo.mostrarGrafo();
             } else if (opcao.equals("7")) {
@@ -328,48 +450,44 @@ public class Main {
             } else if (opcao.equals("9")) {
                 grafo.executarEhArvore();
             } else if (opcao.equals("10")) {
-                System.out.print("Vértice raiz (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int raiz = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.executarArvoreGeradoraBFS(raiz);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int raiz = lerIndiceVertice(scanner, grafo, "Vértice raiz");
+                if (raiz != -1) grafo.executarArvoreGeradoraBFS(raiz);
             } else if (opcao.equals("11")) {
-                System.out.print("Vértice raiz (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int raiz = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.executarArvoreGeradoraDFS(raiz);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int raiz = lerIndiceVertice(scanner, grafo, "Vértice raiz");
+                if (raiz != -1) grafo.executarArvoreGeradoraDFS(raiz);
             } else if (opcao.equals("12")) {
-                System.out.print("Vértice raiz para comparação (0 a " + (grafo.getNumVertices() - 1) + "): ");
-                try {
-                    int raiz = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.compararBfsEDfs(raiz);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int raiz = lerIndiceVertice(scanner, grafo, "Vértice raiz para comparação");
+                if (raiz != -1) grafo.compararBfsEDfs(raiz);
             } else if (opcao.equals("13")) {
-                System.out.print("Vértice raiz para arborescência: ");
-                try {
-                    int raiz = Integer.parseInt(scanner.nextLine().trim());
-                    grafo.executarArborescenciaBFS(raiz);
-                } catch (NumberFormatException e) {
-                    System.out.println("Entrada inválida.");
-                }
+                int raiz = lerIndiceVertice(scanner, grafo, "Vértice raiz para arborescência");
+                if (raiz != -1) grafo.executarArborescenciaBFS(raiz);
             } else if (opcao.equals("14")) {
                 executarDemonstracaoEstudoDirigido();
             } else if (opcao.equals("15")) {
                 grafo = criarGrafoPadrao();
                 System.out.println("Grafo redefinido para o Grafo Padrão da Lista (6 vértices, 7 arestas).");
+            } else if (opcao.equals("16")) {
+                executarAtividadeAula12();
+            } else if (opcao.equals("17")) {
+                grafo = Grafo.criarGrafoAula12();
+                System.out.println("Grafo Ponderado da Aula 12 (V = {A, B, C, D, E, F}) carregado na memória.");
+                grafo.mostrarGrafo();
+            } else if (opcao.equals("18")) {
+                grafo = Grafo.criarGrafoAula12Direcionado();
+                System.out.println("Grafo Dirigido e Ponderado da Aula 12 (V = {A, B, C, D, E, F}) carregado na memória.");
+                grafo.mostrarGrafo();
+            } else if (opcao.equals("19")) {
+                executarCalculoCustoInterativo(scanner, grafo);
+            } else if (opcao.equals("20")) {
+                executarDijkstraNoGrafoAtual(scanner, grafo);
             } else {
                 System.out.println("Opção inválida.");
             }
 
             System.out.print("\nPressione ENTER para continuar...");
-            scanner.nextLine();
+            if (scanner.hasNextLine()) {
+                scanner.nextLine();
+            }
         }
         
         scanner.close();
